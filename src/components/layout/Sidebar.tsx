@@ -3,14 +3,10 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   ListTodo,
   AlertTriangle,
-  Users,
-  Settings,
   MessageSquare,
-  BarChart3,
   LogOut,
   Sun,
   Moon,
-  ClipboardList,
   History,
   Shield,
 } from 'lucide-react';
@@ -98,25 +94,7 @@ const Sidebar: React.FC<SidebarProps> = ({ pendingCount = 0, pendingUsersCount =
       label: 'Painel Admin',
       path: '/admin',
       show: isAdminOrSupervisor,
-    },
-    {
-      icon: ClipboardList,
-      label: 'Gerenciar Atividades',
-      path: '/admin/activities',
-      show: isAdminOrSupervisor,
-    },
-    {
-      icon: Users,
-      label: 'Usuários',
-      path: '/admin/users',
-      show: isAdminOrSupervisor,
       badge: pendingUsersCount,
-    },
-    {
-      icon: BarChart3,
-      label: 'Relatórios',
-      path: '/admin/reports',
-      show: isAdminOrSupervisor,
     },
   ];
 
