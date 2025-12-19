@@ -11,6 +11,11 @@ import Dashboard from "@/pages/Dashboard";
 import Activities from "@/pages/Activities";
 import History from "@/pages/History";
 import Pending from "@/pages/Pending";
+import Chat from "@/pages/Chat";
+import AdminDashboard from "@/pages/admin/AdminDashboard";
+import AdminUsers from "@/pages/admin/AdminUsers";
+import AdminActivities from "@/pages/admin/AdminActivities";
+import AdminReports from "@/pages/admin/AdminReports";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +36,12 @@ const App = () => (
                 <Route path="activities" element={<Activities />} />
                 <Route path="history" element={<History />} />
                 <Route path="pending" element={<Pending />} />
+                <Route path="chat" element={<Chat />} />
+                <Route path="admin" element={<AdminDashboard />} />
+                <Route path="admin/users" element={<AdminUsers />} />
+                <Route path="admin/activities" element={<AdminActivities />} />
+                <Route path="admin/reports" element={<AdminReports />} />
+                <Route path="admin/settings" element={<AdminDashboard />} />
               </Route>
               <Route path="*" element={<NotFound />} />
             </Routes>

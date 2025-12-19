@@ -242,26 +242,32 @@ const Activities: React.FC = () => {
     if (!record) return;
 
     try {
-      const updates: Partial<DailyRecord> = { status: newStatus };
+      const updateData: Record<string, any> = { status: newStatus };
       
       if (newStatus === 'em_andamento' && !record.started_at) {
-        updates.started_at = new Date().toISOString();
+        updateData.started_at = new Date().toISOString();
       }
       
       if (newStatus === 'concluida') {
-        updates.completed_at = new Date().toISOString();
+        updateData.completed_at = new Date().toISOString();
       }
 
       const { error } = await supabase
         .from('daily_records')
-        .update(updates)
+        .update(updateData)
         .eq('id', record.id);
 
       if (error) throw error;
 
       // Update local state
       const newRecords = new Map(dailyRecords);
-      newRecords.set(activityId, { ...record, ...updates, status: newStatus } as DailyRecord);
+      const updatedRecord: DailyRecord = { 
+        ...record, 
+        status: newStatus,
+        started_at: updateData.started_at || record.started_at,
+        completed_at: updateData.completed_at || record.completed_at 
+      };
+      newRecords.set(activityId, updatedRecord);
       setDailyRecords(newRecords);
 
       toast({
