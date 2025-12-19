@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -419,25 +420,41 @@ const Activities: React.FC = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 rounded-xl border border-primary/20">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Minhas Atividades</h1>
           <p className="text-muted-foreground">
             {format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
           </p>
+          {dayStarted && (
+            <div className="flex items-center gap-4 mt-2 text-sm">
+              <span className="flex items-center gap-1">
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+                {Array.from(dailyRecords.values()).filter(r => r.status === 'concluida').length} concluídas
+              </span>
+              <span className="flex items-center gap-1">
+                <Clock className="h-4 w-4 text-blue-500" />
+                {Array.from(dailyRecords.values()).filter(r => r.status === 'em_andamento').length} em andamento
+              </span>
+              <span className="flex items-center gap-1">
+                <XCircle className="h-4 w-4 text-muted-foreground" />
+                {Array.from(dailyRecords.values()).filter(r => r.status === 'nao_iniciada').length} não iniciadas
+              </span>
+            </div>
+          )}
         </div>
         
         {!dayStarted ? (
           <Button
             onClick={startDay}
             disabled={saving}
-            className="btn-corporate-success"
             size="lg"
+            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg shadow-green-500/25 transition-all hover:shadow-green-500/40"
           >
             {saving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             ) : (
-              <Play className="mr-2 h-4 w-4" />
+              <Play className="mr-2 h-5 w-5" />
             )}
             Iniciar Atividades
           </Button>
@@ -445,13 +462,13 @@ const Activities: React.FC = () => {
           <Button
             onClick={endDay}
             disabled={saving}
-            className="btn-corporate-danger"
             size="lg"
+            className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg shadow-red-500/25 transition-all hover:shadow-red-500/40"
           >
             {saving ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
             ) : (
-              <Square className="mr-2 h-4 w-4" />
+              <Square className="mr-2 h-5 w-5" />
             )}
             Finalizar o Dia
           </Button>
@@ -460,46 +477,75 @@ const Activities: React.FC = () => {
 
       {/* Activities Grid */}
       {dayStarted ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {userActivities.map(({ activities: activity, activity_id }) => {
             const record = dailyRecords.get(activity_id);
             const status = record?.status || 'nao_iniciada';
             const availableStatuses = getAvailableStatuses(activity);
 
             return (
-              <Card key={activity_id} className="card-hover">
-                <CardHeader className="pb-3">
+              <Card 
+                key={activity_id} 
+                className={cn(
+                  "relative overflow-hidden transition-all duration-300 hover:shadow-lg",
+                  status === 'concluida' && "border-green-500/50 bg-green-500/5",
+                  status === 'em_andamento' && "border-blue-500/50 bg-blue-500/5",
+                  status === 'pendente' && "border-yellow-500/50 bg-yellow-500/5",
+                  status === 'nao_iniciada' && "border-border"
+                )}
+              >
+                {/* Status indicator bar */}
+                <div className={cn(
+                  "absolute top-0 left-0 right-0 h-1",
+                  status === 'concluida' && "bg-green-500",
+                  status === 'em_andamento' && "bg-blue-500",
+                  status === 'pendente' && "bg-yellow-500",
+                  status === 'nao_iniciada' && "bg-muted-foreground/30"
+                )} />
+                
+                <CardHeader className="pb-3 pt-4">
                   <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-sm font-medium leading-tight">
+                    <CardTitle className="text-sm font-medium leading-tight line-clamp-2">
                       {activity.name}
                     </CardTitle>
-                    {status === 'nao_iniciada' && (
-                      <button
-                        onClick={() => openJustificationModal(activity_id, activity.name)}
-                        className="p-1 hover:bg-muted rounded"
-                        title="Adicionar justificativa"
-                      >
-                        <Pencil className="h-4 w-4 text-muted-foreground" />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => openJustificationModal(activity_id, activity.name)}
+                      className="p-1.5 hover:bg-muted rounded-md transition-colors shrink-0"
+                      title="Adicionar justificativa"
+                    >
+                      <Pencil className="h-4 w-4 text-muted-foreground hover:text-primary" />
+                    </button>
                   </div>
                   {(activity.is_duty_activity || activity.is_monthly_conference) && (
-                    <div className="flex gap-1 mt-1">
+                    <div className="flex gap-1 mt-2">
                       {activity.is_duty_activity && (
-                        <Badge variant="outline" className="text-xs">Plantão</Badge>
+                        <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-500 border-purple-500/30">
+                          Plantão
+                        </Badge>
                       )}
                       {activity.is_monthly_conference && (
-                        <Badge variant="outline" className="text-xs">Conferência Mensal</Badge>
+                        <Badge variant="outline" className="text-xs bg-indigo-500/10 text-indigo-500 border-indigo-500/30">
+                          Conferência Mensal
+                        </Badge>
                       )}
                     </div>
                   )}
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-0">
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
-                      <span className={`status-badge ${getStatusBadgeClass(status)}`}>
+                      <span className={cn(
+                        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium",
+                        status === 'concluida' && "bg-green-500/20 text-green-600 dark:text-green-400",
+                        status === 'em_andamento' && "bg-blue-500/20 text-blue-600 dark:text-blue-400",
+                        status === 'pendente' && "bg-yellow-500/20 text-yellow-600 dark:text-yellow-400",
+                        status === 'nao_iniciada' && "bg-muted text-muted-foreground",
+                        status === 'concluida_com_atraso' && "bg-orange-500/20 text-orange-600 dark:text-orange-400",
+                        status === 'plantao' && "bg-purple-500/20 text-purple-600 dark:text-purple-400",
+                        status === 'conferencia_mensal' && "bg-indigo-500/20 text-indigo-600 dark:text-indigo-400"
+                      )}>
                         {getStatusIcon(status)}
-                        <span className="ml-1">{getStatusLabel(status)}</span>
+                        <span>{getStatusLabel(status)}</span>
                       </span>
                     </div>
                     
@@ -507,21 +553,25 @@ const Activities: React.FC = () => {
                       value={status}
                       onValueChange={(value) => updateStatus(activity_id, value as ActivityStatus)}
                     >
-                      <SelectTrigger className="w-full">
+                      <SelectTrigger className="w-full h-9 text-sm">
                         <SelectValue placeholder="Alterar status" />
                       </SelectTrigger>
                       <SelectContent>
                         {availableStatuses.map((s) => (
                           <SelectItem key={s} value={s}>
-                            {getStatusLabel(s)}
+                            <span className="flex items-center gap-2">
+                              {getStatusIcon(s)}
+                              {getStatusLabel(s)}
+                            </span>
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
 
                     {record?.justification && (
-                      <div className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">
-                        <strong>Justificativa:</strong> {record.justification}
+                      <div className="text-xs text-muted-foreground bg-muted/50 p-2.5 rounded-lg border border-border/50">
+                        <strong className="text-foreground">Justificativa:</strong>
+                        <p className="mt-1">{record.justification}</p>
                       </div>
                     )}
                   </div>
@@ -531,18 +581,33 @@ const Activities: React.FC = () => {
           })}
         </div>
       ) : (
-        <Card className="shadow-corporate">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <Play className="h-16 w-16 text-muted-foreground mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Pronto para começar?</h3>
-            <p className="text-muted-foreground text-center max-w-md mb-6">
+        <Card className="shadow-xl border-primary/20 overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5" />
+          <CardContent className="relative flex flex-col items-center justify-center py-20">
+            <div className="p-6 rounded-full bg-primary/10 mb-6">
+              <Play className="h-16 w-16 text-primary" />
+            </div>
+            <h3 className="text-2xl font-bold mb-3">Pronto para começar?</h3>
+            <p className="text-muted-foreground text-center max-w-md mb-8">
               Clique em "Iniciar Atividades" para começar seu dia de trabalho.
-              Você tem {userActivities.length} atividades atribuídas.
+              Você tem <span className="font-semibold text-primary">{userActivities.length} atividades</span> atribuídas.
             </p>
+            <Button
+              onClick={startDay}
+              disabled={saving}
+              size="lg"
+              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg shadow-green-500/25 transition-all hover:shadow-green-500/40"
+            >
+              {saving ? (
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              ) : (
+                <Play className="mr-2 h-5 w-5" />
+              )}
+              Iniciar Atividades
+            </Button>
           </CardContent>
         </Card>
       )}
-
       {/* Justification Modal */}
       <Dialog 
         open={justificationModal.open} 

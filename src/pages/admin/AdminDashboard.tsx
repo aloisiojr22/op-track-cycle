@@ -14,6 +14,9 @@ import {
   Clock,
   BarChart3,
   Loader2,
+  Eye,
+  XCircle,
+  X,
 } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -25,14 +28,25 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
   LineChart,
   Line,
+  Legend,
 } from 'recharts';
 import { useNavigate } from 'react-router-dom';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface Stats {
   totalUsers: number;
@@ -43,6 +57,25 @@ interface Stats {
   todayPending: number;
   weekCompleted: number;
   monthCompleted: number;
+}
+
+interface OperatorRanking {
+  userId: string;
+  name: string;
+  completed: number;
+  completedLate: number;
+  pending: number;
+  notStarted: number;
+  total: number;
+  completionRate: number;
+}
+
+interface DetailedActivity {
+  id: string;
+  activityName: string;
+  status: string;
+  date: string;
+  justification?: string;
 }
 
 const COLORS = ['hsl(142, 71%, 45%)', 'hsl(210, 100%, 50%)', 'hsl(38, 92%, 50%)', 'hsl(0, 84%, 60%)'];
@@ -63,8 +96,16 @@ const AdminDashboard: React.FC = () => {
     monthCompleted: 0,
   });
   const [pendingByDay, setPendingByDay] = useState<any[]>([]);
-  const [teamPerformance, setTeamPerformance] = useState<any[]>([]);
+  const [operatorRanking, setOperatorRanking] = useState<OperatorRanking[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  // Modal state
+  const [detailModal, setDetailModal] = useState<{
+    open: boolean;
+    operatorName: string;
+    activities: DetailedActivity[];
+    filterStatus: string | null;
+  }>({ open: false, operatorName: '', activities: [], filterStatus: null });
 
   useEffect(() => {
     if (!isAdminOrSupervisor) {
@@ -83,7 +124,6 @@ const AdminDashboard: React.FC = () => {
     const monthEnd = format(endOfMonth(new Date()), 'yyyy-MM-dd');
 
     try {
-      // Fetch all stats in parallel
       const [
         usersResult,
         pendingUsersResult,
@@ -117,7 +157,7 @@ const AdminDashboard: React.FC = () => {
         monthCompleted: monthRecords.filter(r => r.status === 'concluida').length,
       });
 
-      // Calculate pending by day for last 7 days
+      // Pending by day
       const pendingByDayData: Record<string, number> = {};
       for (let i = 6; i >= 0; i--) {
         const date = new Date();
@@ -142,34 +182,51 @@ const AdminDashboard: React.FC = () => {
         pendencias: count,
       })));
 
-      // Team performance
-      const { data: performanceData } = await supabase
+      // Operator ranking with detailed stats
+      const { data: rankingData } = await supabase
         .from('daily_records')
         .select(`
           user_id,
           status,
-          profiles!inner(full_name, email)
+          profiles!inner(id, full_name, email)
         `)
         .gte('date', monthStart)
         .lte('date', monthEnd);
 
-      const userPerformance: Record<string, { name: string; total: number; completed: number; pending: number; late: number }> = {};
+      const userStats: Record<string, OperatorRanking> = {};
       
-      performanceData?.forEach((record: any) => {
+      rankingData?.forEach((record: any) => {
         const userId = record.user_id;
         const name = record.profiles?.full_name || record.profiles?.email || 'Usuário';
         
-        if (!userPerformance[userId]) {
-          userPerformance[userId] = { name, total: 0, completed: 0, pending: 0, late: 0 };
+        if (!userStats[userId]) {
+          userStats[userId] = {
+            userId,
+            name,
+            completed: 0,
+            completedLate: 0,
+            pending: 0,
+            notStarted: 0,
+            total: 0,
+            completionRate: 0,
+          };
         }
         
-        userPerformance[userId].total++;
-        if (record.status === 'concluida') userPerformance[userId].completed++;
-        if (record.status === 'pendente') userPerformance[userId].pending++;
-        if (record.status === 'concluida_com_atraso') userPerformance[userId].late++;
+        userStats[userId].total++;
+        if (record.status === 'concluida') userStats[userId].completed++;
+        if (record.status === 'concluida_com_atraso') userStats[userId].completedLate++;
+        if (record.status === 'pendente') userStats[userId].pending++;
+        if (record.status === 'nao_iniciada') userStats[userId].notStarted++;
       });
 
-      setTeamPerformance(Object.values(userPerformance).sort((a, b) => b.completed - a.completed));
+      // Calculate completion rate
+      Object.values(userStats).forEach(user => {
+        user.completionRate = user.total > 0 
+          ? Math.round(((user.completed + user.completedLate) / user.total) * 100) 
+          : 0;
+      });
+
+      setOperatorRanking(Object.values(userStats).sort((a, b) => b.completionRate - a.completionRate));
     } catch (error) {
       console.error('Error fetching stats:', error);
       toast({
@@ -180,6 +237,73 @@ const AdminDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const viewOperatorDetails = async (userId: string, operatorName: string, filterStatus?: string) => {
+    const monthStart = format(startOfMonth(new Date()), 'yyyy-MM-dd');
+    const monthEnd = format(endOfMonth(new Date()), 'yyyy-MM-dd');
+
+    try {
+      const { data } = await supabase
+        .from('daily_records')
+        .select(`
+          id,
+          status,
+          date,
+          justification,
+          activities!inner(name)
+        `)
+        .eq('user_id', userId)
+        .gte('date', monthStart)
+        .lte('date', monthEnd)
+        .order('date', { ascending: false });
+
+      let filteredData = data || [];
+      if (filterStatus) {
+        filteredData = filteredData.filter((r: any) => r.status === filterStatus);
+      }
+
+      const activities: DetailedActivity[] = filteredData.map((record: any) => ({
+        id: record.id,
+        activityName: record.activities?.name || 'Atividade',
+        status: record.status,
+        date: record.date,
+        justification: record.justification,
+      }));
+
+      setDetailModal({
+        open: true,
+        operatorName,
+        activities,
+        filterStatus: filterStatus || null,
+      });
+    } catch (error) {
+      console.error('Error fetching operator details:', error);
+    }
+  };
+
+  const getStatusLabel = (status: string) => {
+    const labels: Record<string, string> = {
+      concluida: 'Concluída',
+      em_andamento: 'Em Andamento',
+      nao_iniciada: 'Não Iniciada',
+      pendente: 'Pendente',
+      concluida_com_atraso: 'Com Atraso',
+      plantao: 'Plantão',
+      conferencia_mensal: 'Conferência',
+    };
+    return labels[status] || status;
+  };
+
+  const getStatusClass = (status: string) => {
+    const classes: Record<string, string> = {
+      concluida: 'bg-green-500/20 text-green-500',
+      em_andamento: 'bg-blue-500/20 text-blue-500',
+      nao_iniciada: 'bg-gray-500/20 text-gray-500',
+      pendente: 'bg-yellow-500/20 text-yellow-500',
+      concluida_com_atraso: 'bg-orange-500/20 text-orange-500',
+    };
+    return classes[status] || 'bg-muted text-muted-foreground';
   };
 
   if (loading) {
@@ -292,6 +416,127 @@ const AdminDashboard: React.FC = () => {
         </Card>
       </div>
 
+      {/* Operator Ranking */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Users className="h-5 w-5" />
+            Ranking de Operadores (Mês Atual)
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {operatorRanking.length > 0 ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12">#</TableHead>
+                    <TableHead>Operador</TableHead>
+                    <TableHead className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        Concluídas
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <Clock className="h-4 w-4 text-orange-500" />
+                        Com Atraso
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                        Pendentes
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        <XCircle className="h-4 w-4 text-gray-500" />
+                        Não Iniciadas
+                      </div>
+                    </TableHead>
+                    <TableHead className="text-center">Taxa</TableHead>
+                    <TableHead className="text-center">Detalhes</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {operatorRanking.map((operator, index) => (
+                    <TableRow key={operator.userId}>
+                      <TableCell className="font-bold text-muted-foreground">
+                        {index + 1}º
+                      </TableCell>
+                      <TableCell className="font-medium">{operator.name}</TableCell>
+                      <TableCell className="text-center">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-green-500 hover:text-green-600"
+                          onClick={() => viewOperatorDetails(operator.userId, operator.name, 'concluida')}
+                        >
+                          {operator.completed}
+                        </Button>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-orange-500 hover:text-orange-600"
+                          onClick={() => viewOperatorDetails(operator.userId, operator.name, 'concluida_com_atraso')}
+                        >
+                          {operator.completedLate}
+                        </Button>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-yellow-500 hover:text-yellow-600"
+                          onClick={() => viewOperatorDetails(operator.userId, operator.name, 'pendente')}
+                        >
+                          {operator.pending}
+                        </Button>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          className="text-gray-500 hover:text-gray-600"
+                          onClick={() => viewOperatorDetails(operator.userId, operator.name, 'nao_iniciada')}
+                        >
+                          {operator.notStarted}
+                        </Button>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Badge 
+                          variant={operator.completionRate >= 80 ? 'default' : operator.completionRate >= 50 ? 'secondary' : 'destructive'}
+                        >
+                          {operator.completionRate}%
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => viewOperatorDetails(operator.userId, operator.name)}
+                          title="Ver todas as atividades"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="flex h-32 items-center justify-center text-muted-foreground">
+              Nenhum dado disponível
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Charts */}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -316,6 +561,7 @@ const AdminDashboard: React.FC = () => {
                   stroke="hsl(38, 92%, 50%)" 
                   strokeWidth={2}
                   dot={{ fill: 'hsl(38, 92%, 50%)' }}
+                  name="Pendências"
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -324,20 +570,20 @@ const AdminDashboard: React.FC = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Desempenho da Equipe (Mês)</CardTitle>
+            <CardTitle className="text-lg">Top 5 Operadores por Conclusão</CardTitle>
           </CardHeader>
           <CardContent>
-            {teamPerformance.length > 0 ? (
+            {operatorRanking.length > 0 ? (
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={teamPerformance.slice(0, 5)} layout="vertical">
+                <BarChart data={operatorRanking.slice(0, 5)} layout="vertical">
                   <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
                   <XAxis type="number" />
                   <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 12 }} />
                   <Tooltip />
                   <Legend />
                   <Bar dataKey="completed" stackId="a" fill={COLORS[0]} name="Concluídas" />
-                  <Bar dataKey="pending" stackId="a" fill={COLORS[2]} name="Pendentes" />
-                  <Bar dataKey="late" stackId="a" fill={COLORS[3]} name="Com Atraso" />
+                  <Bar dataKey="completedLate" stackId="a" fill={COLORS[2]} name="Com Atraso" />
+                  <Bar dataKey="pending" stackId="a" fill={COLORS[3]} name="Pendentes" />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -371,6 +617,56 @@ const AdminDashboard: React.FC = () => {
           </div>
         </CardContent>
       </Card>
+
+      {/* Detail Modal */}
+      <Dialog open={detailModal.open} onOpenChange={(open) => setDetailModal({ ...detailModal, open })}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center justify-between">
+              <span>
+                Atividades de {detailModal.operatorName}
+                {detailModal.filterStatus && (
+                  <Badge className="ml-2">{getStatusLabel(detailModal.filterStatus)}</Badge>
+                )}
+              </span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-4">
+            {detailModal.activities.length > 0 ? (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Atividade</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Justificativa</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {detailModal.activities.map((activity) => (
+                    <TableRow key={activity.id}>
+                      <TableCell className="font-medium">{activity.activityName}</TableCell>
+                      <TableCell>{format(new Date(activity.date + 'T12:00:00'), 'dd/MM/yyyy')}</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusClass(activity.status)}`}>
+                          {getStatusLabel(activity.status)}
+                        </span>
+                      </TableCell>
+                      <TableCell className="max-w-xs truncate">
+                        {activity.justification || '-'}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            ) : (
+              <div className="flex h-32 items-center justify-center text-muted-foreground">
+                Nenhuma atividade encontrada
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

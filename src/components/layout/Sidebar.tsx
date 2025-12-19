@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard,
@@ -14,12 +14,12 @@ import {
   ClipboardList,
   History,
   Shield,
-  Bell,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SidebarProps {
   pendingCount?: number;
@@ -27,9 +27,40 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ pendingCount = 0, pendingUsersCount = 0 }) => {
-  const { signOut, isAdminOrSupervisor, profile } = useAuth();
+  const { signOut, isAdminOrSupervisor, profile, user } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const location = useLocation();
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const fetchUnreadMessages = async () => {
+      const { count } = await supabase
+        .from('chat_messages')
+        .select('*', { count: 'exact', head: true })
+        .or(`receiver_id.eq.${user.id},is_broadcast.eq.true`)
+        .neq('sender_id', user.id)
+        .is('read_at', null);
+      
+      setUnreadMessages(count || 0);
+    };
+
+    fetchUnreadMessages();
+
+    const channel = supabase
+      .channel('chat-unread-count')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'chat_messages' },
+        () => fetchUnreadMessages()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user]);
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -64,6 +95,7 @@ const Sidebar: React.FC<SidebarProps> = ({ pendingCount = 0, pendingUsersCount =
       label: 'Chat',
       path: '/chat',
       show: true,
+      badge: unreadMessages,
     },
   ];
 
@@ -91,12 +123,6 @@ const Sidebar: React.FC<SidebarProps> = ({ pendingCount = 0, pendingUsersCount =
       icon: BarChart3,
       label: 'Relatórios',
       path: '/admin/reports',
-      show: isAdminOrSupervisor,
-    },
-    {
-      icon: Settings,
-      label: 'Configurações',
-      path: '/admin/settings',
       show: isAdminOrSupervisor,
     },
   ];
