@@ -29,6 +29,7 @@ import {
   Filter,
   Trophy,
   Save,
+  FileText,
 } from 'lucide-react';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -126,6 +127,16 @@ interface DetailedActivity {
   justification?: string;
 }
 
+interface JustificationItem {
+  id: string;
+  userName: string;
+  activityName: string;
+  date: string;
+  justification: string;
+  actionTaken: string | null;
+  status: string;
+}
+
 interface Stats {
   totalUsers: number;
   pendingUsers: number;
@@ -209,6 +220,10 @@ const AdminPanel: React.FC = () => {
   const [reportPeriod, setReportPeriod] = useState<'day' | 'week' | 'month'>('week');
   const [reportStats, setReportStats] = useState<any[]>([]);
   const [statusDistribution, setStatusDistribution] = useState<any[]>([]);
+  
+  // Justifications state
+  const [justifications, setJustifications] = useState<JustificationItem[]>([]);
+  const [justificationsLoading, setJustificationsLoading] = useState(false);
 
   useEffect(() => {
     if (!isAdminOrSupervisor) {
@@ -224,8 +239,48 @@ const AdminPanel: React.FC = () => {
       fetchDashboardStats(),
       fetchUsers(),
       fetchActivities(),
+      fetchJustifications(),
     ]);
     setLoading(false);
+  };
+
+  const fetchJustifications = async () => {
+    setJustificationsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('daily_records')
+        .select(`
+          id,
+          justification,
+          action_taken,
+          status,
+          date,
+          profiles!inner(full_name, email),
+          activities!inner(name)
+        `)
+        .not('justification', 'is', null)
+        .neq('justification', '')
+        .order('date', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+
+      const items: JustificationItem[] = (data || []).map((record: any) => ({
+        id: record.id,
+        userName: record.profiles?.full_name || record.profiles?.email || 'Usuário',
+        activityName: record.activities?.name || 'Atividade',
+        date: record.date,
+        justification: record.justification,
+        actionTaken: record.action_taken,
+        status: record.status,
+      }));
+      
+      setJustifications(items);
+    } catch (error) {
+      console.error('Error fetching justifications:', error);
+    } finally {
+      setJustificationsLoading(false);
+    }
   };
 
   const fetchDashboardStats = async () => {
@@ -719,6 +774,10 @@ const AdminPanel: React.FC = () => {
             <ClipboardList className="h-4 w-4" />
             Atividades
           </TabsTrigger>
+          <TabsTrigger value="justifications" className="flex items-center gap-2 text-sm">
+            <FileText className="h-4 w-4" />
+            Justificativas
+          </TabsTrigger>
           <TabsTrigger value="reports" className="flex items-center gap-2 text-sm">
             <Trophy className="h-4 w-4" />
             Ranking
@@ -932,25 +991,27 @@ const AdminPanel: React.FC = () => {
                                   </Button>
                                 </>
                               )}
+                              {user.id !== currentProfile?.id && (
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7"
+                                  onClick={() => openEditUserModal(user)}
+                                  title="Editar permissões"
+                                >
+                                  <Edit2 className="h-4 w-4" />
+                                </Button>
+                              )}
                               {isAdmin && user.id !== currentProfile?.id && (
-                                <>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-7 w-7"
-                                    onClick={() => openEditUserModal(user)}
-                                  >
-                                    <Edit2 className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    size="icon"
-                                    variant="ghost"
-                                    className="h-7 w-7 text-red-600"
-                                    onClick={() => setDeleteUserDialog({ open: true, user })}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-7 w-7 text-red-600"
+                                  onClick={() => setDeleteUserDialog({ open: true, user })}
+                                  title="Excluir usuário"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
                               )}
                             </div>
                           </TableCell>
@@ -1042,6 +1103,64 @@ const AdminPanel: React.FC = () => {
               <p className="text-sm text-muted-foreground">Crie uma nova atividade para começar.</p>
             </Card>
           )}
+        </TabsContent>
+
+        {/* Justifications Tab */}
+        <TabsContent value="justifications" className="mt-4 space-y-4">
+          <Card>
+            <CardHeader className="py-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" />
+                Relação de Justificativas
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {justificationsLoading ? (
+                <div className="flex h-24 items-center justify-center">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : justifications.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Operador</TableHead>
+                        <TableHead>Atividade</TableHead>
+                        <TableHead>Data</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Justificativa</TableHead>
+                        <TableHead>Ação Tomada</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {justifications.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell className="font-medium text-sm">{item.userName}</TableCell>
+                          <TableCell className="text-sm">{item.activityName}</TableCell>
+                          <TableCell className="text-sm">{format(new Date(item.date + 'T12:00:00'), 'dd/MM/yyyy')}</TableCell>
+                          <TableCell>
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusClass(item.status)}`}>
+                              {getStatusLabel(item.status)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="max-w-xs text-sm">
+                            <p className="line-clamp-2">{item.justification}</p>
+                          </TableCell>
+                          <TableCell className="max-w-xs text-sm">
+                            <p className="line-clamp-2">{item.actionTaken || '-'}</p>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="flex h-24 items-center justify-center text-muted-foreground text-sm">
+                  Nenhuma justificativa encontrada
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
 
         {/* Ranking Tab */}
