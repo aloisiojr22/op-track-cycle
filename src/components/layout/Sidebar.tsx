@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
-  LayoutDashboard,
   ListTodo,
   AlertTriangle,
   Users,
@@ -65,12 +64,6 @@ const Sidebar: React.FC<SidebarProps> = ({ pendingCount = 0, pendingUsersCount =
   const isActive = (path: string) => location.pathname === path;
 
   const menuItems = [
-    {
-      icon: LayoutDashboard,
-      label: 'Dashboard',
-      path: '/dashboard',
-      show: true,
-    },
     {
       icon: ListTodo,
       label: 'Minhas Atividades',

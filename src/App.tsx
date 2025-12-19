@@ -7,7 +7,6 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import MainLayout from "@/components/layout/MainLayout";
 import Auth from "@/pages/Auth";
-import Dashboard from "@/pages/Dashboard";
 import Activities from "@/pages/Activities";
 import History from "@/pages/History";
 import Pending from "@/pages/Pending";
@@ -31,8 +30,8 @@ const App = () => (
             <Routes>
               <Route path="/auth" element={<Auth />} />
               <Route path="/" element={<MainLayout />}>
-                <Route index element={<Navigate to="/dashboard" replace />} />
-                <Route path="dashboard" element={<Dashboard />} />
+                <Route index element={<Navigate to="/activities" replace />} />
+                <Route path="dashboard" element={<Navigate to="/activities" replace />} />
                 <Route path="activities" element={<Activities />} />
                 <Route path="history" element={<History />} />
                 <Route path="pending" element={<Pending />} />
