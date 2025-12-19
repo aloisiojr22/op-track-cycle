@@ -16,8 +16,15 @@ import {
   Loader2,
   Calendar,
   XCircle,
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  Target,
+  ArrowUp,
+  ArrowDown,
+  Minus,
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subWeeks, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import {
@@ -35,8 +42,21 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  Legend,
+} from 'recharts';
 
-interface Activity {
+interface ActivityData {
   id: string;
   name: string;
   is_duty_activity: boolean;
@@ -51,24 +71,65 @@ interface DailyRecord {
   action_taken: string | null;
   started_at: string | null;
   completed_at: string | null;
+  date?: string;
 }
 
 interface UserActivity {
   activity_id: string;
-  activities: Activity;
+  activities: ActivityData;
+}
+
+interface PendingActivity {
+  id: string;
+  activityName: string;
+  date: string;
+  status: string;
+  daysOverdue?: number;
 }
 
 type ActivityStatus = 'nao_iniciada' | 'em_andamento' | 'concluida' | 'pendente' | 'concluida_com_atraso' | 'plantao' | 'conferencia_mensal';
+type PeriodFilter = 'today' | 'week' | 'month';
+
+const COLORS = {
+  concluida: 'hsl(142, 71%, 45%)',
+  em_andamento: 'hsl(210, 100%, 50%)',
+  nao_iniciada: 'hsl(220, 10%, 60%)',
+  pendente: 'hsl(38, 92%, 50%)',
+  concluida_com_atraso: 'hsl(0, 84%, 60%)',
+};
 
 const Activities: React.FC = () => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
   
+  const [period, setPeriod] = useState<PeriodFilter>('today');
   const [userActivities, setUserActivities] = useState<UserActivity[]>([]);
   const [dailyRecords, setDailyRecords] = useState<Map<string, DailyRecord>>(new Map());
   const [dayStarted, setDayStarted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  
+  // Stats
+  const [stats, setStats] = useState({
+    total: 0,
+    completed: 0,
+    inProgress: 0,
+    notStarted: 0,
+    pending: 0,
+    late: 0,
+  });
+  
+  // Pending activities summary
+  const [pendingActivities, setPendingActivities] = useState<PendingActivity[]>([]);
+  
+  // Comparison data
+  const [comparisonData, setComparisonData] = useState<{
+    current: { completed: number; pending: number; rate: number };
+    previous: { completed: number; pending: number; rate: number };
+  }>({ current: { completed: 0, pending: 0, rate: 0 }, previous: { completed: 0, pending: 0, rate: 0 } });
+  
+  // Chart data
+  const [chartData, setChartData] = useState<any[]>([]);
   
   const [justificationModal, setJustificationModal] = useState<{
     open: boolean;
@@ -79,6 +140,30 @@ const Activities: React.FC = () => {
   const [actionTaken, setActionTaken] = useState('');
 
   const today = format(new Date(), 'yyyy-MM-dd');
+
+  const getDateRange = (periodFilter: PeriodFilter, offset: 'current' | 'previous' = 'current') => {
+    const now = new Date();
+    switch (periodFilter) {
+      case 'today': {
+        const date = offset === 'current' ? now : new Date(now.getTime() - 86400000);
+        return { start: format(date, 'yyyy-MM-dd'), end: format(date, 'yyyy-MM-dd') };
+      }
+      case 'week': {
+        const baseDate = offset === 'current' ? now : subWeeks(now, 1);
+        return {
+          start: format(startOfWeek(baseDate, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+          end: format(endOfWeek(baseDate, { weekStartsOn: 1 }), 'yyyy-MM-dd'),
+        };
+      }
+      case 'month': {
+        const baseDate = offset === 'current' ? now : subMonths(now, 1);
+        return {
+          start: format(startOfMonth(baseDate), 'yyyy-MM-dd'),
+          end: format(endOfMonth(baseDate), 'yyyy-MM-dd'),
+        };
+      }
+    }
+  };
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -117,9 +202,106 @@ const Activities: React.FC = () => {
         recordsMap.set(record.activity_id, record);
       });
       setDailyRecords(recordsMap);
-      
-      // Check if day has started (any record exists for today)
       setDayStarted(records && records.length > 0);
+      
+      // Fetch stats for current period
+      const { start, end } = getDateRange(period);
+      const { data: periodRecords } = await supabase
+        .from('daily_records')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('date', start)
+        .lte('date', end);
+
+      if (periodRecords) {
+        setStats({
+          total: periodRecords.length,
+          completed: periodRecords.filter(r => r.status === 'concluida').length,
+          inProgress: periodRecords.filter(r => r.status === 'em_andamento').length,
+          notStarted: periodRecords.filter(r => r.status === 'nao_iniciada').length,
+          pending: periodRecords.filter(r => r.status === 'pendente').length,
+          late: periodRecords.filter(r => r.status === 'concluida_com_atraso').length,
+        });
+
+        // Chart data grouped by date
+        const grouped = periodRecords.reduce((acc: any, record) => {
+          const date = record.date;
+          if (!acc[date]) {
+            acc[date] = { date, concluida: 0, pendente: 0, em_andamento: 0, nao_iniciada: 0 };
+          }
+          if (record.status) {
+            acc[date][record.status] = (acc[date][record.status] || 0) + 1;
+          }
+          return acc;
+        }, {});
+        setChartData(Object.values(grouped));
+      }
+      
+      // Fetch comparison data for previous period
+      const prevRange = getDateRange(period, 'previous');
+      const { data: prevRecords } = await supabase
+        .from('daily_records')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('date', prevRange.start)
+        .lte('date', prevRange.end);
+
+      if (periodRecords && prevRecords) {
+        const currentCompleted = periodRecords.filter(r => r.status === 'concluida').length;
+        const currentPending = periodRecords.filter(r => r.status === 'pendente').length;
+        const currentTotal = periodRecords.length;
+        
+        const prevCompleted = prevRecords.filter(r => r.status === 'concluida').length;
+        const prevPending = prevRecords.filter(r => r.status === 'pendente').length;
+        const prevTotal = prevRecords.length;
+        
+        setComparisonData({
+          current: {
+            completed: currentCompleted,
+            pending: currentPending,
+            rate: currentTotal > 0 ? Math.round((currentCompleted / currentTotal) * 100) : 0,
+          },
+          previous: {
+            completed: prevCompleted,
+            pending: prevPending,
+            rate: prevTotal > 0 ? Math.round((prevCompleted / prevTotal) * 100) : 0,
+          },
+        });
+      }
+      
+      // Fetch pending/overdue activities
+      const { data: pendingData } = await supabase
+        .from('daily_records')
+        .select(`
+          id,
+          activity_id,
+          status,
+          date,
+          activities (name)
+        `)
+        .eq('user_id', user.id)
+        .in('status', ['pendente', 'nao_iniciada', 'em_andamento'])
+        .order('date', { ascending: true })
+        .limit(5);
+
+      if (pendingData) {
+        const pending: PendingActivity[] = pendingData.map((item: any) => {
+          const activityDate = new Date(item.date + 'T12:00:00');
+          const todayDate = new Date();
+          const diffTime = todayDate.getTime() - activityDate.getTime();
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          return {
+            id: item.id,
+            activityName: item.activities?.name || 'Atividade',
+            date: item.date,
+            status: item.status,
+            daysOverdue: diffDays > 0 ? diffDays : 0,
+          };
+        });
+        setPendingActivities(pending.filter(p => p.daysOverdue && p.daysOverdue > 0));
+      }
+      
     } catch (error) {
       console.error('Error fetching activities:', error);
       toast({
@@ -130,7 +312,7 @@ const Activities: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, today, toast]);
+  }, [user, today, period, toast]);
 
   useEffect(() => {
     fetchData();
@@ -141,7 +323,6 @@ const Activities: React.FC = () => {
     
     setSaving(true);
     try {
-      // Create records for all assigned activities
       const records = userActivities.map(ua => ({
         user_id: user.id,
         activity_id: ua.activity_id,
@@ -178,12 +359,10 @@ const Activities: React.FC = () => {
     
     setSaving(true);
     try {
-      // Get all in-progress activities and mark them as pending
       const inProgressRecords = Array.from(dailyRecords.values())
         .filter(r => r.status === 'em_andamento');
 
       for (const record of inProgressRecords) {
-        // Create pending item
         await supabase.from('pending_items').insert({
           original_user_id: user.id,
           activity_id: record.activity_id,
@@ -192,14 +371,12 @@ const Activities: React.FC = () => {
           action_taken: record.action_taken,
         });
 
-        // Update record to pending
         await supabase
           .from('daily_records')
           .update({ status: 'pendente' })
           .eq('id', record.id);
       }
 
-      // Check for not started without justification - mark as pending
       const notStartedWithoutJustification = Array.from(dailyRecords.values())
         .filter(r => r.status === 'nao_iniciada' && !r.justification);
 
@@ -221,7 +398,6 @@ const Activities: React.FC = () => {
         description: 'Suas atividades foram salvas. Bom descanso!',
       });
       
-      // Reset for new day
       setDayStarted(false);
       setDailyRecords(new Map());
     } catch (error) {
@@ -260,7 +436,6 @@ const Activities: React.FC = () => {
 
       if (error) throw error;
 
-      // Update local state
       const newRecords = new Map(dailyRecords);
       const updatedRecord: DailyRecord = { 
         ...record, 
@@ -275,6 +450,8 @@ const Activities: React.FC = () => {
         title: 'Status atualizado',
         description: `Atividade marcada como ${getStatusLabel(newStatus)}.`,
       });
+      
+      await fetchData();
     } catch (error) {
       console.error('Error updating status:', error);
       toast({
@@ -309,7 +486,6 @@ const Activities: React.FC = () => {
 
       if (error) throw error;
 
-      // Update local state
       const newRecords = new Map(dailyRecords);
       newRecords.set(justificationModal.activityId, {
         ...record,
@@ -340,38 +516,25 @@ const Activities: React.FC = () => {
       em_andamento: 'Em Andamento',
       nao_iniciada: 'Não Iniciada',
       pendente: 'Pendente',
-      concluida_com_atraso: 'Concluída com Atraso',
+      concluida_com_atraso: 'Com Atraso',
       plantao: 'Plantão',
-      conferencia_mensal: 'Conferência Mensal',
+      conferencia_mensal: 'Conferência',
     };
     return labels[status] || status;
   };
 
-  const getStatusBadgeClass = (status: string) => {
-    const classes: Record<string, string> = {
-      concluida: 'status-concluida',
-      em_andamento: 'status-em-andamento',
-      nao_iniciada: 'status-nao-iniciada',
-      pendente: 'status-pendente',
-      concluida_com_atraso: 'status-concluida-com-atraso',
-      plantao: 'status-plantao',
-      conferencia_mensal: 'status-conferencia-mensal',
-    };
-    return classes[status] || '';
-  };
-
   const getStatusIcon = (status: string) => {
     const icons: Record<string, React.ReactNode> = {
-      concluida: <CheckCircle2 className="h-4 w-4" />,
-      em_andamento: <Clock className="h-4 w-4" />,
-      nao_iniciada: <XCircle className="h-4 w-4" />,
-      pendente: <AlertTriangle className="h-4 w-4" />,
-      concluida_com_atraso: <AlertTriangle className="h-4 w-4" />,
+      concluida: <CheckCircle2 className="h-3 w-3" />,
+      em_andamento: <Clock className="h-3 w-3" />,
+      nao_iniciada: <XCircle className="h-3 w-3" />,
+      pendente: <AlertTriangle className="h-3 w-3" />,
+      concluida_com_atraso: <AlertTriangle className="h-3 w-3" />,
     };
     return icons[status] || null;
   };
 
-  const getAvailableStatuses = (activity: Activity): ActivityStatus[] => {
+  const getAvailableStatuses = (activity: ActivityData): ActivityStatus[] => {
     const baseStatuses: ActivityStatus[] = ['nao_iniciada', 'em_andamento', 'concluida'];
     
     if (activity.is_duty_activity) {
@@ -384,6 +547,18 @@ const Activities: React.FC = () => {
     
     return baseStatuses;
   };
+
+  const getPeriodLabel = () => {
+    switch (period) {
+      case 'today': return { current: 'Hoje', previous: 'Ontem' };
+      case 'week': return { current: 'Esta Semana', previous: 'Semana Passada' };
+      case 'month': return { current: 'Este Mês', previous: 'Mês Passado' };
+    }
+  };
+
+  const completionRate = stats.total > 0 ? Math.round((stats.completed / stats.total) * 100) : 0;
+  const rateDiff = comparisonData.current.rate - comparisonData.previous.rate;
+  const completedDiff = comparisonData.current.completed - comparisonData.previous.completed;
 
   if (loading) {
     return (
@@ -418,148 +593,243 @@ const Activities: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 rounded-xl border border-primary/20">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Minhas Atividades</h1>
-          <p className="text-muted-foreground">
+          <h1 className="text-xl font-bold text-foreground">
+            Olá, {profile?.full_name?.split(' ')[0] || 'Usuário'}!
+          </h1>
+          <p className="text-sm text-muted-foreground">
             {format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
           </p>
-          {dayStarted && (
-            <div className="flex items-center gap-4 mt-2 text-sm">
-              <span className="flex items-center gap-1">
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                {Array.from(dailyRecords.values()).filter(r => r.status === 'concluida').length} concluídas
-              </span>
-              <span className="flex items-center gap-1">
-                <Clock className="h-4 w-4 text-blue-500" />
-                {Array.from(dailyRecords.values()).filter(r => r.status === 'em_andamento').length} em andamento
-              </span>
-              <span className="flex items-center gap-1">
-                <XCircle className="h-4 w-4 text-muted-foreground" />
-                {Array.from(dailyRecords.values()).filter(r => r.status === 'nao_iniciada').length} não iniciadas
+        </div>
+        
+        <div className="flex items-center gap-2">
+          <Tabs value={period} onValueChange={(v) => setPeriod(v as PeriodFilter)} className="w-auto">
+            <TabsList className="h-8">
+              <TabsTrigger value="today" className="text-xs px-3 h-7">Hoje</TabsTrigger>
+              <TabsTrigger value="week" className="text-xs px-3 h-7">Semana</TabsTrigger>
+              <TabsTrigger value="month" className="text-xs px-3 h-7">Mês</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          
+          {!dayStarted ? (
+            <Button onClick={startDay} disabled={saving || userActivities.length === 0} size="sm" className="h-8 text-xs bg-green-600 hover:bg-green-700">
+              {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3 mr-1" />}
+              Iniciar
+            </Button>
+          ) : (
+            <Button onClick={endDay} disabled={saving} size="sm" className="h-8 text-xs bg-red-600 hover:bg-red-700">
+              {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Square className="h-3 w-3 mr-1" />}
+              Finalizar
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Pending Activities Alert */}
+      {pendingActivities.length > 0 && (
+        <Card className="border-yellow-500/50 bg-yellow-500/5">
+          <CardHeader className="py-3 px-4">
+            <CardTitle className="text-sm font-medium flex items-center gap-2 text-yellow-600 dark:text-yellow-400">
+              <AlertTriangle className="h-4 w-4" />
+              Atividades Pendentes/Atrasadas
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="py-2 px-4">
+            <div className="space-y-2">
+              {pendingActivities.slice(0, 3).map((item) => (
+                <div key={item.id} className="flex items-center justify-between text-sm">
+                  <div className="flex items-center gap-2">
+                    <span className={cn(
+                      "w-2 h-2 rounded-full",
+                      item.status === 'pendente' && "bg-yellow-500",
+                      item.status === 'nao_iniciada' && "bg-muted-foreground",
+                      item.status === 'em_andamento' && "bg-blue-500"
+                    )} />
+                    <span className="truncate max-w-[200px]">{item.activityName}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-muted-foreground">{format(new Date(item.date + 'T12:00:00'), 'dd/MM')}</span>
+                    {item.daysOverdue && item.daysOverdue > 0 && (
+                      <Badge variant="destructive" className="text-xs px-1.5 py-0">
+                        {item.daysOverdue}d atraso
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {pendingActivities.length > 3 && (
+                <p className="text-xs text-muted-foreground">
+                  +{pendingActivities.length - 3} outras atividades atrasadas
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* KPI Cards */}
+      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
+        <Card className="p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">Concluídas</p>
+              <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
+            </div>
+            <CheckCircle2 className="h-6 w-6 text-green-500 opacity-50" />
+          </div>
+          {period !== 'today' && (
+            <div className="mt-1 flex items-center gap-1 text-xs">
+              {completedDiff > 0 ? (
+                <ArrowUp className="h-3 w-3 text-green-500" />
+              ) : completedDiff < 0 ? (
+                <ArrowDown className="h-3 w-3 text-red-500" />
+              ) : (
+                <Minus className="h-3 w-3 text-muted-foreground" />
+              )}
+              <span className={cn(
+                completedDiff > 0 && "text-green-600",
+                completedDiff < 0 && "text-red-600",
+                completedDiff === 0 && "text-muted-foreground"
+              )}>
+                {completedDiff > 0 ? '+' : ''}{completedDiff} vs {getPeriodLabel().previous.toLowerCase()}
               </span>
             </div>
           )}
-        </div>
-        
-        {!dayStarted ? (
-          <Button
-            onClick={startDay}
-            disabled={saving}
-            size="lg"
-            className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg shadow-green-500/25 transition-all hover:shadow-green-500/40"
-          >
-            {saving ? (
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            ) : (
-              <Play className="mr-2 h-5 w-5" />
-            )}
-            Iniciar Atividades
-          </Button>
-        ) : (
-          <Button
-            onClick={endDay}
-            disabled={saving}
-            size="lg"
-            className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg shadow-red-500/25 transition-all hover:shadow-red-500/40"
-          >
-            {saving ? (
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            ) : (
-              <Square className="mr-2 h-5 w-5" />
-            )}
-            Finalizar o Dia
-          </Button>
-        )}
+        </Card>
+
+        <Card className="p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">Em Andamento</p>
+              <p className="text-2xl font-bold text-blue-600">{stats.inProgress}</p>
+            </div>
+            <Clock className="h-6 w-6 text-blue-500 opacity-50" />
+          </div>
+        </Card>
+
+        <Card className="p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">Pendentes</p>
+              <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
+            </div>
+            <AlertTriangle className="h-6 w-6 text-yellow-500 opacity-50" />
+          </div>
+        </Card>
+
+        <Card className="p-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">Taxa</p>
+              <p className="text-2xl font-bold text-primary">{completionRate}%</p>
+            </div>
+            <Target className="h-6 w-6 text-primary opacity-50" />
+          </div>
+          <div className="mt-1 h-1.5 w-full rounded-full bg-muted">
+            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${completionRate}%` }} />
+          </div>
+          {period !== 'today' && (
+            <div className="mt-1 flex items-center gap-1 text-xs">
+              {rateDiff > 0 ? (
+                <TrendingUp className="h-3 w-3 text-green-500" />
+              ) : rateDiff < 0 ? (
+                <TrendingDown className="h-3 w-3 text-red-500" />
+              ) : (
+                <Minus className="h-3 w-3 text-muted-foreground" />
+              )}
+              <span className={cn(
+                rateDiff > 0 && "text-green-600",
+                rateDiff < 0 && "text-red-600",
+                rateDiff === 0 && "text-muted-foreground"
+              )}>
+                {rateDiff > 0 ? '+' : ''}{rateDiff}% vs {getPeriodLabel().previous.toLowerCase()}
+              </span>
+            </div>
+          )}
+        </Card>
       </div>
 
-      {/* Activities Grid */}
-      {dayStarted ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {userActivities.map(({ activities: activity, activity_id }) => {
-            const record = dailyRecords.get(activity_id);
-            const status = record?.status || 'nao_iniciada';
-            const availableStatuses = getAvailableStatuses(activity);
+      {/* Activities + Charts Grid */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* Activities Section */}
+        <div className="lg:col-span-2 space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold flex items-center gap-2">
+              <Activity className="h-4 w-4 text-primary" />
+              Atividades de Hoje
+            </h2>
+            {dayStarted && (
+              <div className="flex gap-2 text-xs text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  {Array.from(dailyRecords.values()).filter(r => r.status === 'concluida').length}
+                </span>
+                <span className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-blue-500" />
+                  {Array.from(dailyRecords.values()).filter(r => r.status === 'em_andamento').length}
+                </span>
+                <span className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-muted-foreground" />
+                  {Array.from(dailyRecords.values()).filter(r => r.status === 'nao_iniciada').length}
+                </span>
+              </div>
+            )}
+          </div>
 
-            return (
-              <Card 
-                key={activity_id} 
-                className={cn(
-                  "relative overflow-hidden transition-all duration-300 hover:shadow-lg",
-                  status === 'concluida' && "border-green-500/50 bg-green-500/5",
-                  status === 'em_andamento' && "border-blue-500/50 bg-blue-500/5",
-                  status === 'pendente' && "border-yellow-500/50 bg-yellow-500/5",
-                  status === 'nao_iniciada' && "border-border"
-                )}
-              >
-                {/* Status indicator bar */}
-                <div className={cn(
-                  "absolute top-0 left-0 right-0 h-1",
-                  status === 'concluida' && "bg-green-500",
-                  status === 'em_andamento' && "bg-blue-500",
-                  status === 'pendente' && "bg-yellow-500",
-                  status === 'nao_iniciada' && "bg-muted-foreground/30"
-                )} />
-                
-                <CardHeader className="pb-3 pt-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <CardTitle className="text-sm font-medium leading-tight line-clamp-2">
-                      {activity.name}
-                    </CardTitle>
-                    <button
-                      onClick={() => openJustificationModal(activity_id, activity.name)}
-                      className="p-1.5 hover:bg-muted rounded-md transition-colors shrink-0"
-                      title="Adicionar justificativa"
-                    >
-                      <Pencil className="h-4 w-4 text-muted-foreground hover:text-primary" />
-                    </button>
-                  </div>
-                  {(activity.is_duty_activity || activity.is_monthly_conference) && (
-                    <div className="flex gap-1 mt-2">
-                      {activity.is_duty_activity && (
-                        <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-500 border-purple-500/30">
-                          Plantão
-                        </Badge>
-                      )}
-                      {activity.is_monthly_conference && (
-                        <Badge variant="outline" className="text-xs bg-indigo-500/10 text-indigo-500 border-indigo-500/30">
-                          Conferência Mensal
-                        </Badge>
-                      )}
-                    </div>
-                  )}
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      <span className={cn(
-                        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium",
-                        status === 'concluida' && "bg-green-500/20 text-green-600 dark:text-green-400",
-                        status === 'em_andamento' && "bg-blue-500/20 text-blue-600 dark:text-blue-400",
-                        status === 'pendente' && "bg-yellow-500/20 text-yellow-600 dark:text-yellow-400",
-                        status === 'nao_iniciada' && "bg-muted text-muted-foreground",
-                        status === 'concluida_com_atraso' && "bg-orange-500/20 text-orange-600 dark:text-orange-400",
-                        status === 'plantao' && "bg-purple-500/20 text-purple-600 dark:text-purple-400",
-                        status === 'conferencia_mensal' && "bg-indigo-500/20 text-indigo-600 dark:text-indigo-400"
-                      )}>
-                        {getStatusIcon(status)}
-                        <span>{getStatusLabel(status)}</span>
-                      </span>
+          {dayStarted ? (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {userActivities.map(({ activities: activity, activity_id }) => {
+                const record = dailyRecords.get(activity_id);
+                const status = record?.status || 'nao_iniciada';
+                const availableStatuses = getAvailableStatuses(activity);
+
+                return (
+                  <Card key={activity_id} className={cn(
+                    "p-3 relative overflow-hidden",
+                    status === 'concluida' && "border-green-500/50",
+                    status === 'em_andamento' && "border-blue-500/50"
+                  )}>
+                    <div className={cn(
+                      "absolute top-0 left-0 right-0 h-0.5",
+                      status === 'concluida' && "bg-green-500",
+                      status === 'em_andamento' && "bg-blue-500",
+                      status === 'pendente' && "bg-yellow-500",
+                      status === 'nao_iniciada' && "bg-muted-foreground/30"
+                    )} />
+                    
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{activity.name}</p>
+                        <span className={cn(
+                          "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs mt-1",
+                          status === 'concluida' && "bg-green-500/20 text-green-600",
+                          status === 'em_andamento' && "bg-blue-500/20 text-blue-600",
+                          status === 'pendente' && "bg-yellow-500/20 text-yellow-600",
+                          status === 'nao_iniciada' && "bg-muted text-muted-foreground"
+                        )}>
+                          {getStatusIcon(status)}
+                          {getStatusLabel(status)}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => openJustificationModal(activity_id, activity.name)}
+                        className="p-1 hover:bg-muted rounded shrink-0"
+                      >
+                        <Pencil className="h-3 w-3 text-muted-foreground" />
+                      </button>
                     </div>
                     
-                    <Select
-                      value={status}
-                      onValueChange={(value) => updateStatus(activity_id, value as ActivityStatus)}
-                    >
-                      <SelectTrigger className="w-full h-9 text-sm">
-                        <SelectValue placeholder="Alterar status" />
+                    <Select value={status} onValueChange={(v) => updateStatus(activity_id, v as ActivityStatus)}>
+                      <SelectTrigger className="h-7 text-xs">
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         {availableStatuses.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            <span className="flex items-center gap-2">
+                          <SelectItem key={s} value={s} className="text-xs">
+                            <span className="flex items-center gap-1">
                               {getStatusIcon(s)}
                               {getStatusLabel(s)}
                             </span>
@@ -567,86 +837,108 @@ const Activities: React.FC = () => {
                         ))}
                       </SelectContent>
                     </Select>
-
-                    {record?.justification && (
-                      <div className="text-xs text-muted-foreground bg-muted/50 p-2.5 rounded-lg border border-border/50">
-                        <strong className="text-foreground">Justificativa:</strong>
-                        <p className="mt-1">{record.justification}</p>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      ) : (
-        <Card className="shadow-xl border-primary/20 overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/5" />
-          <CardContent className="relative flex flex-col items-center justify-center py-20">
-            <div className="p-6 rounded-full bg-primary/10 mb-6">
-              <Play className="h-16 w-16 text-primary" />
+                  </Card>
+                );
+              })}
             </div>
-            <h3 className="text-2xl font-bold mb-3">Pronto para começar?</h3>
-            <p className="text-muted-foreground text-center max-w-md mb-8">
-              Clique em "Iniciar Atividades" para começar seu dia de trabalho.
-              Você tem <span className="font-semibold text-primary">{userActivities.length} atividades</span> atribuídas.
-            </p>
-            <Button
-              onClick={startDay}
-              disabled={saving}
-              size="lg"
-              className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-lg shadow-green-500/25 transition-all hover:shadow-green-500/40"
-            >
-              {saving ? (
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          ) : (
+            <Card className="p-6 text-center">
+              <Play className="h-10 w-10 text-primary mx-auto mb-3 opacity-50" />
+              <p className="text-sm text-muted-foreground mb-3">
+                Clique em "Iniciar" para começar. Você tem <span className="font-medium text-primary">{userActivities.length}</span> atividades.
+              </p>
+            </Card>
+          )}
+        </div>
+
+        {/* Charts Section */}
+        <div className="space-y-4">
+          {/* Performance comparison chart */}
+          <Card className="p-3">
+            <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-primary" />
+              Comparativo: {getPeriodLabel().current} vs {getPeriodLabel().previous}
+            </h3>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="text-center p-2 rounded-lg bg-muted/50">
+                <p className="text-xs text-muted-foreground">{getPeriodLabel().previous}</p>
+                <p className="text-lg font-bold">{comparisonData.previous.rate}%</p>
+                <p className="text-xs text-muted-foreground">{comparisonData.previous.completed} concluídas</p>
+              </div>
+              <div className="text-center p-2 rounded-lg bg-primary/10 border border-primary/20">
+                <p className="text-xs text-muted-foreground">{getPeriodLabel().current}</p>
+                <p className="text-lg font-bold text-primary">{comparisonData.current.rate}%</p>
+                <p className="text-xs text-muted-foreground">{comparisonData.current.completed} concluídas</p>
+              </div>
+            </div>
+            <div className="flex items-center justify-center gap-2">
+              {rateDiff > 0 ? (
+                <Badge className="bg-green-500/20 text-green-600 border-green-500/30">
+                  <ArrowUp className="h-3 w-3 mr-1" />
+                  Melhoria de {rateDiff}%
+                </Badge>
+              ) : rateDiff < 0 ? (
+                <Badge className="bg-red-500/20 text-red-600 border-red-500/30">
+                  <ArrowDown className="h-3 w-3 mr-1" />
+                  Queda de {Math.abs(rateDiff)}%
+                </Badge>
               ) : (
-                <Play className="mr-2 h-5 w-5" />
+                <Badge variant="secondary">
+                  <Minus className="h-3 w-3 mr-1" />
+                  Sem alteração
+                </Badge>
               )}
-              Iniciar Atividades
-            </Button>
-          </CardContent>
-        </Card>
-      )}
+            </div>
+          </Card>
+
+          {/* Bar chart */}
+          <Card className="p-3">
+            <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-primary" />
+              {getPeriodLabel().current}
+            </h3>
+            {chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={150}>
+                <BarChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
+                  <XAxis dataKey="date" tickFormatter={(d) => format(new Date(d + 'T12:00:00'), 'dd/MM')} tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip formatter={(value, name) => [value, getStatusLabel(name as string)]} labelFormatter={(d) => format(new Date(d + 'T12:00:00'), 'dd/MM')} />
+                  <Bar dataKey="concluida" stackId="a" fill={COLORS.concluida} />
+                  <Bar dataKey="em_andamento" stackId="a" fill={COLORS.em_andamento} />
+                  <Bar dataKey="pendente" stackId="a" fill={COLORS.pendente} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[150px] flex items-center justify-center text-xs text-muted-foreground">
+                Sem dados
+              </div>
+            )}
+          </Card>
+        </div>
+      </div>
+
       {/* Justification Modal */}
-      <Dialog 
-        open={justificationModal.open} 
-        onOpenChange={(open) => setJustificationModal({ ...justificationModal, open })}
-      >
+      <Dialog open={justificationModal.open} onOpenChange={(open) => setJustificationModal({ ...justificationModal, open })}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Justificativa - {justificationModal.activityName}</DialogTitle>
+            <DialogTitle className="text-sm">Justificativa - {justificationModal.activityName}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="justification">Justificativa</Label>
-              <Textarea
-                id="justification"
-                placeholder="Descreva o motivo de não ter iniciado esta atividade..."
-                value={justification}
-                onChange={(e) => setJustification(e.target.value)}
-                rows={3}
-              />
+          <div className="space-y-3 py-3">
+            <div className="space-y-1">
+              <Label htmlFor="justification" className="text-xs">Justificativa</Label>
+              <Textarea id="justification" placeholder="Motivo..." value={justification} onChange={(e) => setJustification(e.target.value)} rows={2} className="text-sm" />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="action">Ação Tomada</Label>
-              <Textarea
-                id="action"
-                placeholder="Descreva a ação tomada (se houver)..."
-                value={actionTaken}
-                onChange={(e) => setActionTaken(e.target.value)}
-                rows={3}
-              />
+            <div className="space-y-1">
+              <Label htmlFor="action" className="text-xs">Ação Tomada</Label>
+              <Textarea id="action" placeholder="Ação..." value={actionTaken} onChange={(e) => setActionTaken(e.target.value)} rows={2} className="text-sm" />
             </div>
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setJustificationModal({ open: false, activityId: null, activityName: '' })}
-            >
+            <Button variant="outline" size="sm" onClick={() => setJustificationModal({ open: false, activityId: null, activityName: '' })}>
               Cancelar
             </Button>
-            <Button onClick={saveJustification}>Salvar</Button>
+            <Button size="sm" onClick={saveJustification}>Salvar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
