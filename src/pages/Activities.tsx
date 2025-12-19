@@ -785,19 +785,22 @@ const Activities: React.FC = () => {
                 const record = dailyRecords.get(activity_id);
                 const status = record?.status || 'nao_iniciada';
                 const availableStatuses = getAvailableStatuses(activity);
+                const hasJustification = record?.justification && record.justification.trim().length > 0;
 
                 return (
                   <Card key={activity_id} className={cn(
                     "p-3 relative overflow-hidden",
                     status === 'concluida' && "border-green-500/50",
-                    status === 'em_andamento' && "border-blue-500/50"
+                    status === 'em_andamento' && "border-blue-500/50",
+                    status === 'nao_iniciada' && hasJustification && "border-green-500/50"
                   )}>
                     <div className={cn(
                       "absolute top-0 left-0 right-0 h-0.5",
                       status === 'concluida' && "bg-green-500",
                       status === 'em_andamento' && "bg-blue-500",
                       status === 'pendente' && "bg-yellow-500",
-                      status === 'nao_iniciada' && "bg-muted-foreground/30"
+                      status === 'nao_iniciada' && !hasJustification && "bg-muted-foreground/30",
+                      status === 'nao_iniciada' && hasJustification && "bg-green-500"
                     )} />
                     
                     <div className="flex items-start justify-between gap-2 mb-2">
@@ -808,18 +811,22 @@ const Activities: React.FC = () => {
                           status === 'concluida' && "bg-green-500/20 text-green-600",
                           status === 'em_andamento' && "bg-blue-500/20 text-blue-600",
                           status === 'pendente' && "bg-yellow-500/20 text-yellow-600",
-                          status === 'nao_iniciada' && "bg-muted text-muted-foreground"
+                          status === 'nao_iniciada' && !hasJustification && "bg-muted text-muted-foreground",
+                          status === 'nao_iniciada' && hasJustification && "bg-green-500/20 text-green-600"
                         )}>
                           {getStatusIcon(status)}
                           {getStatusLabel(status)}
+                          {status === 'nao_iniciada' && hasJustification && ' ✓'}
                         </span>
                       </div>
-                      <button
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 shrink-0"
                         onClick={() => openJustificationModal(activity_id, activity.name)}
-                        className="p-1 hover:bg-muted rounded shrink-0"
                       >
                         <Pencil className="h-3 w-3 text-muted-foreground" />
-                      </button>
+                      </Button>
                     </div>
                     
                     <Select value={status} onValueChange={(v) => updateStatus(activity_id, v as ActivityStatus)}>
