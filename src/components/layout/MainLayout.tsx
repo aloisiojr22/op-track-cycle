@@ -78,7 +78,58 @@ const MainLayout: React.FC = () => {
         variant: 'default',
       });
     }
-  }, [pendingCount > 0]);
+  }, [pendingCount]);
+
+  // Subscribe to chat messages for notifications
+  useEffect(() => {
+    if (!user) return;
+
+    const chatChannel = supabase
+      .channel('chat-notifications')
+      .on(
+        'postgres_changes',
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'chat_messages',
+          filter: `receiver_id=eq.${user.id}`
+        },
+        (payload) => {
+          const newMessage = payload.new as any;
+          if (newMessage.sender_id !== user.id) {
+            toast({
+              title: 'Nova mensagem',
+              description: 'Você recebeu uma nova mensagem no chat.',
+              variant: 'default',
+            });
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { 
+          event: 'INSERT', 
+          schema: 'public', 
+          table: 'chat_messages',
+          filter: `is_broadcast=eq.true`
+        },
+        (payload) => {
+          const newMessage = payload.new as any;
+          if (newMessage.sender_id !== user.id) {
+            toast({
+              title: 'Mensagem de broadcast',
+              description: 'Uma nova mensagem foi enviada para todos.',
+              variant: 'default',
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(chatChannel);
+    };
+  }, [user, toast]);
 
   if (loading) {
     return (
