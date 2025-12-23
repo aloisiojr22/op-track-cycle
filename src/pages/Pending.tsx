@@ -177,7 +177,7 @@ const Pending: React.FC = () => {
       console.error('Error assigning item:', error);
       toast({
         title: 'Erro',
-        description: 'Não foi possível atribuir a pendência.',
+        description: (error as any)?.message || 'Não foi possível atribuir a pendência.',
         variant: 'destructive',
       });
     }
@@ -204,7 +204,7 @@ const Pending: React.FC = () => {
       console.error('Error assigning item:', error);
       toast({
         title: 'Erro',
-        description: 'Não foi possível atribuir a pendência.',
+          description: (error as any)?.message || 'Não foi possível atribuir a pendência.',
         variant: 'destructive',
       });
     }
@@ -249,7 +249,7 @@ const Pending: React.FC = () => {
       console.error('Error resolving item:', error);
       toast({
         title: 'Erro',
-        description: 'Não foi possível resolver a pendência.',
+          description: (error as any)?.message || 'Não foi possível resolver a pendência.',
         variant: 'destructive',
       });
     }
@@ -286,7 +286,7 @@ const Pending: React.FC = () => {
       console.error('Error creating request:', error);
       toast({
         title: 'Erro',
-        description: 'Não foi possível criar a solicitação.',
+          description: (error as any)?.message || 'Não foi possível criar a solicitação.',
         variant: 'destructive',
       });
     }

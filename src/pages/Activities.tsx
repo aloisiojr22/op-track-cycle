@@ -408,11 +408,13 @@ const Activities: React.FC = () => {
       
       setDayStarted(false);
       setDailyRecords(new Map());
+      // Refresh data to reflect persisted changes
+      await fetchData();
     } catch (error) {
       console.error('Error ending day:', error);
       toast({
         title: 'Erro',
-        description: 'Não foi possível finalizar o dia.',
+        description: (error as any)?.message || 'Não foi possível finalizar o dia.',
         variant: 'destructive',
       });
     } finally {
