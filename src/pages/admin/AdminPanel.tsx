@@ -485,6 +485,23 @@ const AdminPanel: React.FC = () => {
         .update(payload)
         .eq('id', editUserModal.user.id);
 
+      // If updating current user's email, also update auth user record
+      if (editUserModal.user.id === currentProfile?.id && editUserData.email && editUserData.email.trim() !== currentProfile?.email) {
+        try {
+          // This updates the currently authenticated user's email
+          const { data: authData, error: authError } = await supabase.auth.updateUser({ email: editUserData.email.trim() });
+          if (authError) {
+            console.error('Error updating auth user email:', authError);
+            toast({ title: 'Aviso', description: 'Email atualizado no profile, mas não foi possível atualizar no Auth.', variant: 'destructive' });
+          } else {
+            toast({ title: 'Email atualizado', description: 'Email atualizado no Auth.' });
+          }
+        } catch (e) {
+          console.error('Auth update error:', e);
+          toast({ title: 'Aviso', description: 'Email atualizado no profile, mas não foi possível atualizar no Auth.', variant: 'destructive' });
+        }
+      }
+
       if (error) throw error;
       toast({ title: 'Usuário atualizado' });
       setEditUserModal({ open: false, user: null });
@@ -1327,7 +1344,11 @@ const AdminPanel: React.FC = () => {
             </div>
             <div className="space-y-2">
               <Label className="text-sm">Função</Label>
-              <Select value={editUserData.role} onValueChange={(v) => setEditUserData({ ...editUserData, role: v })}>
+              <Select
+                value={editUserData.role}
+                onValueChange={(v) => setEditUserData({ ...editUserData, role: v })}
+                disabled={currentProfile?.role !== 'admin'}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione a função" />
                 </SelectTrigger>
@@ -1339,6 +1360,9 @@ const AdminPanel: React.FC = () => {
                   ))}
                 </SelectContent>
               </Select>
+              {currentProfile?.role !== 'admin' && (
+                <p className="text-xs text-muted-foreground">Somente administradores podem alterar a função.</p>
+              )}
             </div>
           </div>
           <DialogFooter>

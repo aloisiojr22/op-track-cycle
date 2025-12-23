@@ -411,11 +411,16 @@ const Activities: React.FC = () => {
         if (updateError2) throw updateError2;
       }
 
+      // Count how many pending items were created (read from logs if available)
+      // We collected insert logs via createSupabaseLog earlier; but we can compute locally.
+      const createdPendings = (Array.from(dailyRecords.values()).filter(r => r.status === 'em_andamento').length)
+        + (Array.from(dailyRecords.values()).filter(r => r.status === 'nao_iniciada' && !r.justification).length);
+
       toast({
         title: 'Dia Finalizado!',
-        description: 'Suas atividades foram salvas. Bom descanso!',
+        description: `Suas atividades foram salvas. ${createdPendings} pendência(s) criada(s). Bom descanso!`,
       });
-      
+
       setDayStarted(false);
       setDailyRecords(new Map());
       // Refresh data to reflect persisted changes

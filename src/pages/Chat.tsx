@@ -25,6 +25,7 @@ interface Profile {
   full_name: string | null;
   email: string;
   role: string;
+  approval_status?: string;
 }
 
 interface Message {
@@ -93,7 +94,7 @@ const Chat: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, full_name, email, role')
+        .select('id, full_name, email, role, approval_status')
         .eq('approval_status', 'approved')
         .neq('id', user?.id)
         .order('full_name');
@@ -153,6 +154,16 @@ const Chat: React.FC = () => {
     e.preventDefault();
     if (!user || !selectedUser || !newMessage.trim()) return;
 
+    // both users must be approved
+    if (profile?.approval_status !== 'approved') {
+      toast({ title: 'Erro', description: 'Seu usuário não está aprovado para enviar mensagens.', variant: 'destructive' });
+      return;
+    }
+    if (selectedUser.approval_status !== 'approved') {
+      toast({ title: 'Erro', description: 'O destinatário não está aprovado.', variant: 'destructive' });
+      return;
+    }
+
     setSending(true);
     try {
       const { error, data } = await supabase
@@ -163,6 +174,8 @@ const Chat: React.FC = () => {
           message: newMessage.trim(),
           is_broadcast: false,
         }]);
+
+      createSupabaseLog('insert', 'chat_messages', { sender_id: user.id, receiver_id: selectedUser.id, message: newMessage.trim() }, data, error);
 
       if (error) throw error;
       setNewMessage('');
