@@ -9,6 +9,7 @@ import {
   Moon,
   History,
   Shield,
+  FileText,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -95,6 +96,12 @@ const Sidebar: React.FC<SidebarProps> = ({ pendingCount = 0, pendingUsersCount =
       path: '/admin',
       show: isAdminOrSupervisor,
       badge: pendingUsersCount,
+    },
+    {
+      icon: FileText,
+      label: 'Logs',
+      path: '/logs',
+      show: isAdminOrSupervisor,
     },
   ];
 

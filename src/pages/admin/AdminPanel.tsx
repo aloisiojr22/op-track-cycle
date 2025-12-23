@@ -1014,17 +1014,15 @@ const AdminPanel: React.FC = () => {
                                   </Button>
                                 </>
                               )}
-                              {user.id !== currentProfile?.id && (
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-7 w-7"
-                                  onClick={() => openEditUserModal(user)}
-                                  title="Editar permissões"
-                                >
-                                  <Edit2 className="h-4 w-4" />
-                                </Button>
-                              )}
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                className="h-7 w-7"
+                                onClick={() => openEditUserModal(user)}
+                                title="Editar usuário"
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
                               {isAdmin && user.id !== currentProfile?.id && (
                                 <Button
                                   size="icon"

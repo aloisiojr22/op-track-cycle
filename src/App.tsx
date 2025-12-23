@@ -11,6 +11,7 @@ import Activities from "@/pages/Activities";
 import History from "@/pages/History";
 import Pending from "@/pages/Pending";
 import Chat from "@/pages/Chat";
+import Logs from "@/pages/Logs";
 import AdminPanel from "@/pages/admin/AdminPanel";
 import NotFound from "./pages/NotFound";
 
@@ -33,6 +34,7 @@ const App = () => (
                 <Route path="history" element={<History />} />
                 <Route path="pending" element={<Pending />} />
                 <Route path="chat" element={<Chat />} />
+                <Route path="logs" element={<Logs />} />
                 <Route path="admin" element={<AdminPanel />} />
                 <Route path="admin/*" element={<AdminPanel />} />
               </Route>
