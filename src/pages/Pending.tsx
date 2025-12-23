@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { createSupabaseLog } from '@/lib/supabaseDebug';
 import {
   AlertTriangle,
   User,
@@ -158,11 +159,12 @@ const Pending: React.FC = () => {
     if (!assignModal.itemId || !selectedUser) return;
 
     try {
-      const { error } = await supabase
+      const payload = { assigned_user_id: selectedUser };
+      const { error, data } = await supabase
         .from('pending_items')
-        .update({ assigned_user_id: selectedUser })
+        .update(payload)
         .eq('id', assignModal.itemId);
-
+      createSupabaseLog('update', 'pending_items', { id: assignModal.itemId, ...payload }, data, error);
       if (error) throw error;
 
       toast({
@@ -187,11 +189,12 @@ const Pending: React.FC = () => {
     if (!user) return;
 
     try {
-      const { error } = await supabase
+      const payload = { assigned_user_id: user.id };
+      const { error, data } = await supabase
         .from('pending_items')
-        .update({ assigned_user_id: user.id })
+        .update(payload)
         .eq('id', itemId);
-
+      createSupabaseLog('update', 'pending_items', { id: itemId, ...payload }, data, error);
       if (error) throw error;
 
       toast({
@@ -214,16 +217,17 @@ const Pending: React.FC = () => {
     if (!resolveModal.item) return;
 
     try {
-      const { error } = await supabase
+      const payload = {
+        resolved: true,
+        resolved_at: new Date().toISOString(),
+        justification: resolveJustification || resolveModal.item.justification,
+        action_taken: resolveAction || resolveModal.item.action_taken,
+      };
+      const { error, data } = await supabase
         .from('pending_items')
-        .update({
-          resolved: true,
-          resolved_at: new Date().toISOString(),
-          justification: resolveJustification || resolveModal.item.justification,
-          action_taken: resolveAction || resolveModal.item.action_taken,
-        })
+        .update(payload)
         .eq('id', resolveModal.item.id);
-
+      createSupabaseLog('update', 'pending_items', { id: resolveModal.item.id, ...payload }, data, error);
       if (error) throw error;
 
       // If it's an activity pending item, update the daily record
@@ -259,17 +263,18 @@ const Pending: React.FC = () => {
     if (!user || !newRequestType) return;
 
     try {
-      const { error } = await supabase
+      const payload = [{
+        original_user_id: user.id,
+        request_type: newRequestType as any,
+        is_special_request: true,
+        description: newRequestDescription,
+        action_taken: newRequestAction,
+        original_date: format(new Date(), 'yyyy-MM-dd'),
+      }];
+      const { error, data } = await supabase
         .from('pending_items')
-        .insert([{
-          original_user_id: user.id,
-          request_type: newRequestType as any,
-          is_special_request: true,
-          description: newRequestDescription,
-          action_taken: newRequestAction,
-          original_date: format(new Date(), 'yyyy-MM-dd'),
-        }]);
-
+        .insert(payload);
+      createSupabaseLog('insert', 'pending_items', payload, data, error);
       if (error) throw error;
 
       toast({

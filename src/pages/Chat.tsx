@@ -18,6 +18,7 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { createSupabaseLog } from '@/lib/supabaseDebug';
 
 interface Profile {
   id: string;
@@ -78,8 +79,11 @@ const Chat: React.FC = () => {
   }, [user]);
 
   useEffect(() => {
+    // fetch messages for selected user or general broadcast when none selected
     if (selectedUser) {
       fetchMessages(selectedUser.id);
+    } else {
+      fetchBroadcastMessages();
     }
   }, [selectedUser]);
 
@@ -104,6 +108,7 @@ const Chat: React.FC = () => {
       setUsers(data || []);
     } catch (error) {
       console.error('Error fetching users:', error);
+      createSupabaseLog('select', 'profiles', { approval_status: 'approved' }, null, error);
     } finally {
       setLoading(false);
     }
@@ -131,12 +136,33 @@ const Chat: React.FC = () => {
         .is('read_at', null);
     } catch (error) {
       console.error('Error fetching messages:', error);
+      createSupabaseLog('select', 'chat_messages', { user: user?.id, other: otherUserId }, null, error);
+    }
+  };
+
+  const fetchBroadcastMessages = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('is_broadcast', true)
+        .order('created_at', { ascending: true });
+
+      if (error) throw error;
+      setMessages(data || []);
+    } catch (error) {
+      console.error('Error fetching broadcast messages:', error);
     }
   };
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !selectedUser || !newMessage.trim()) return;
+    if (!user || !newMessage.trim()) return;
+
+    // If no selectedUser, treat as broadcast/general chat
+    if (!selectedUser) {
+      return sendGeneralMessage();
+    }
 
     setSending(true);
     try {
@@ -158,6 +184,29 @@ const Chat: React.FC = () => {
         description: 'Não foi possível enviar a mensagem.',
         variant: 'destructive',
       });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const sendGeneralMessage = async () => {
+    setSending(true);
+    try {
+      const { error } = await supabase
+        .from('chat_messages')
+        .insert([{
+          sender_id: user.id,
+          receiver_id: null,
+          message: newMessage.trim(),
+          is_broadcast: true,
+        }]);
+
+      if (error) throw error;
+      setNewMessage('');
+      toast({ title: 'Mensagem enviada', description: 'Mensagem enviada no chat geral.' });
+    } catch (error) {
+      console.error('Error sending general message:', error);
+      toast({ title: 'Erro', description: 'Não foi possível enviar a mensagem geral.', variant: 'destructive' });
     } finally {
       setSending(false);
     }

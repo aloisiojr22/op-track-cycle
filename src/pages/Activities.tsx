@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { createSupabaseLog } from '@/lib/supabaseDebug';
 import {
   Play,
   Square,
@@ -363,7 +364,18 @@ const Activities: React.FC = () => {
         .filter(r => r.status === 'em_andamento');
 
       for (const record of inProgressRecords) {
-        const { error: insertError } = await supabase.from('pending_items').insert([{
+        const payloadInsert = {
+          original_user_id: user.id,
+          activity_id: record.activity_id,
+          original_date: today,
+          justification: record.justification,
+          action_taken: record.action_taken,
+        };
+        const { error: insertError, data: insertData } = await supabase.from('pending_items').insert([payloadInsert]);
+
+        createSupabaseLog('insert', 'pending_items', payloadInsert, insertData, insertError);
+
+        if (insertError) throw insertError;
           original_user_id: user.id,
           activity_id: record.activity_id,
           original_date: today,
@@ -373,10 +385,13 @@ const Activities: React.FC = () => {
 
         if (insertError) throw insertError;
 
-        const { error: updateError } = await supabase
+        const payloadUpdate = { status: 'pendente' };
+        const { error: updateError, data: updateData } = await supabase
           .from('daily_records')
-          .update({ status: 'pendente' })
+          .update(payloadUpdate)
           .eq('id', record.id);
+
+        createSupabaseLog('update', 'daily_records', { id: record.id, ...payloadUpdate }, updateData, updateError);
 
         if (updateError) throw updateError;
       }
@@ -385,20 +400,22 @@ const Activities: React.FC = () => {
         .filter(r => r.status === 'nao_iniciada' && !r.justification);
 
       for (const record of notStartedWithoutJustification) {
-        const { error: insertError } = await supabase.from('pending_items').insert([{
+        const payloadInsert2 = {
           original_user_id: user.id,
           activity_id: record.activity_id,
           original_date: today,
-        }]);
+        };
+        const { error: insertError2, data: insertData2 } = await supabase.from('pending_items').insert([payloadInsert2]);
+        createSupabaseLog('insert', 'pending_items', payloadInsert2, insertData2, insertError2);
+        if (insertError2) throw insertError2;
 
-        if (insertError) throw insertError;
-
-        const { error: updateError } = await supabase
+        const payloadUpdate2 = { status: 'pendente' };
+        const { error: updateError2, data: updateData2 } = await supabase
           .from('daily_records')
-          .update({ status: 'pendente' })
+          .update(payloadUpdate2)
           .eq('id', record.id);
-
-        if (updateError) throw updateError;
+        createSupabaseLog('update', 'daily_records', { id: record.id, ...payloadUpdate2 }, updateData2, updateError2);
+        if (updateError2) throw updateError2;
       }
 
       toast({
