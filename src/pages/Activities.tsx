@@ -363,34 +363,42 @@ const Activities: React.FC = () => {
         .filter(r => r.status === 'em_andamento');
 
       for (const record of inProgressRecords) {
-        await supabase.from('pending_items').insert({
+        const { error: insertError } = await supabase.from('pending_items').insert([{
           original_user_id: user.id,
           activity_id: record.activity_id,
           original_date: today,
           justification: record.justification,
           action_taken: record.action_taken,
-        });
+        }]);
 
-        await supabase
+        if (insertError) throw insertError;
+
+        const { error: updateError } = await supabase
           .from('daily_records')
           .update({ status: 'pendente' })
           .eq('id', record.id);
+
+        if (updateError) throw updateError;
       }
 
       const notStartedWithoutJustification = Array.from(dailyRecords.values())
         .filter(r => r.status === 'nao_iniciada' && !r.justification);
 
       for (const record of notStartedWithoutJustification) {
-        await supabase.from('pending_items').insert({
+        const { error: insertError } = await supabase.from('pending_items').insert([{
           original_user_id: user.id,
           activity_id: record.activity_id,
           original_date: today,
-        });
+        }]);
 
-        await supabase
+        if (insertError) throw insertError;
+
+        const { error: updateError } = await supabase
           .from('daily_records')
           .update({ status: 'pendente' })
           .eq('id', record.id);
+
+        if (updateError) throw updateError;
       }
 
       toast({

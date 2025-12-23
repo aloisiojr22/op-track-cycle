@@ -638,31 +638,12 @@ const PendingList: React.FC<PendingListProps> = ({
 
                 <div className="flex flex-wrap gap-2">
                   {!item.assigned_user_id && (
-                    <>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onAssignToMe(item.id)}
-                      >
-                        Atribuir a mim
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onAssign(item.id)}
-                      >
-                        Atribuir
-                      </Button>
-                    </>
-                  )}
-                  {(item.assigned_user_id === user?.id || !item.assigned_user_id) && (
                     <Button
+                      variant="outline"
                       size="sm"
-                      className="btn-corporate-success"
-                      onClick={() => onResolve(item)}
+                      onClick={() => onAssign(item.id)}
                     >
-                      <CheckCircle2 className="mr-1 h-4 w-4" />
-                      Resolver
+                      Atribuir
                     </Button>
                   )}
                 </div>
