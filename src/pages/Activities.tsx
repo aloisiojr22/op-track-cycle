@@ -376,14 +376,6 @@ const Activities: React.FC = () => {
         createSupabaseLog('insert', 'pending_items', payloadInsert, insertData, insertError);
 
         if (insertError) throw insertError;
-          original_user_id: user.id,
-          activity_id: record.activity_id,
-          original_date: today,
-          justification: record.justification,
-          action_taken: record.action_taken,
-        }]);
-
-        if (insertError) throw insertError;
 
         const payloadUpdate = { status: 'pendente' };
         const { error: updateError, data: updateData } = await supabase
