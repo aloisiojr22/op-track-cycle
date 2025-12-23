@@ -471,12 +471,18 @@ const AdminPanel: React.FC = () => {
     if (!editUserModal.user) return;
 
     try {
+      const payload: any = {
+        full_name: editUserData.full_name.trim() || null,
+        role: editUserData.role as any,
+      };
+      // Update email if changed
+      if (editUserData.email && editUserData.email.trim() !== editUserModal.user.email) {
+        payload.email = editUserData.email.trim();
+      }
+
       const { error } = await supabase
         .from('profiles')
-        .update({
-          full_name: editUserData.full_name.trim() || null,
-          role: editUserData.role as any,
-        })
+        .update(payload)
         .eq('id', editUserModal.user.id);
 
       if (error) throw error;
@@ -1311,12 +1317,12 @@ const AdminPanel: React.FC = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-email" className="text-sm">Email (não editável)</Label>
+              <Label htmlFor="edit-email" className="text-sm">Email</Label>
               <Input
                 id="edit-email"
                 value={editUserData.email}
-                disabled
-                className="bg-muted"
+                onChange={(e) => setEditUserData({ ...editUserData, email: e.target.value })}
+                placeholder="email@exemplo.com"
               />
             </div>
             <div className="space-y-2">

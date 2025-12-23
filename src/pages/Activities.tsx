@@ -203,7 +203,8 @@ const Activities: React.FC = () => {
         recordsMap.set(record.activity_id, record);
       });
       setDailyRecords(recordsMap);
-      setDayStarted(records && records.length > 0);
+      // Consider 'pendente' records as not indicative of a started day.
+      setDayStarted(records && records.some((r: any) => r.status && r.status !== 'pendente'));
       
       // Fetch stats for current period
       const { start, end } = getDateRange(period);

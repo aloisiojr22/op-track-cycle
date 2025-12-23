@@ -53,8 +53,8 @@ const Chat: React.FC = () => {
 
   useEffect(() => {
     fetchUsers();
-    
-    // Subscribe to new messages
+
+    // Subscribe to new messages (1:1 messages only)
     const channel = supabase
       .channel('chat-messages')
       .on(
@@ -62,10 +62,7 @@ const Chat: React.FC = () => {
         { event: 'INSERT', schema: 'public', table: 'chat_messages' },
         (payload) => {
           const newMsg = payload.new as Message;
-          if (
-            (newMsg.sender_id === user?.id || newMsg.receiver_id === user?.id) ||
-            newMsg.is_broadcast
-          ) {
+          if (newMsg.sender_id === user?.id || newMsg.receiver_id === user?.id) {
             setMessages(prev => [...prev, newMsg]);
             scrollToBottom();
           }
@@ -79,11 +76,8 @@ const Chat: React.FC = () => {
   }, [user]);
 
   useEffect(() => {
-    // fetch messages for selected user or general broadcast when none selected
     if (selectedUser) {
       fetchMessages(selectedUser.id);
-    } else {
-      fetchBroadcastMessages();
     }
   }, [selectedUser]);
 
@@ -157,16 +151,11 @@ const Chat: React.FC = () => {
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !newMessage.trim()) return;
-
-    // If no selectedUser, treat as broadcast/general chat
-    if (!selectedUser) {
-      return sendGeneralMessage();
-    }
+    if (!user || !selectedUser || !newMessage.trim()) return;
 
     setSending(true);
     try {
-      const { error } = await supabase
+      const { error, data } = await supabase
         .from('chat_messages')
         .insert([{
           sender_id: user.id,
@@ -189,28 +178,7 @@ const Chat: React.FC = () => {
     }
   };
 
-  const sendGeneralMessage = async () => {
-    setSending(true);
-    try {
-      const { error } = await supabase
-        .from('chat_messages')
-        .insert([{
-          sender_id: user.id,
-          receiver_id: null,
-          message: newMessage.trim(),
-          is_broadcast: true,
-        }]);
-
-      if (error) throw error;
-      setNewMessage('');
-      toast({ title: 'Mensagem enviada', description: 'Mensagem enviada no chat geral.' });
-    } catch (error) {
-      console.error('Error sending general message:', error);
-      toast({ title: 'Erro', description: 'Não foi possível enviar a mensagem geral.', variant: 'destructive' });
-    } finally {
-      setSending(false);
-    }
-  };
+  
 
   const sendBroadcast = async () => {
     if (!user || !newMessage.trim()) return;
@@ -426,21 +394,8 @@ const Chat: React.FC = () => {
                 <MessageSquare className="h-16 w-16 mb-4 opacity-50" />
                 <p className="text-lg font-medium">Selecione um usuário</p>
                 <p className="text-sm">Escolha alguém para iniciar uma conversa</p>
-                {isAdminOrSupervisor && (
-                  <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-                    <p className="text-sm mb-2">Enviar mensagem para todos:</p>
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Mensagem broadcast..."
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        className="w-64"
-                      />
-                      <Button onClick={sendBroadcast} disabled={sending || !newMessage.trim()}>
-                        Enviar a Todos
-                      </Button>
-                    </div>
-                  </div>
+                {false && (
+                  <div />
                 )}
               </CardContent>
             )}
