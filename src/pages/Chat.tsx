@@ -235,7 +235,7 @@ const Chat: React.FC = () => {
                         <div className="flex items-center gap-1">
                           <p className="text-xs font-medium">{msg.sender?.full_name || 'Usuário'}</p>
                           <span className="text-[10px] text-muted-foreground capitalize">
-                            {msg.sender?.role.replace(/_/g, ' ')}
+                            {(msg.sender?.role || '').replace(/_/g, ' ')}
                           </span>
                         </div>
                       )}
