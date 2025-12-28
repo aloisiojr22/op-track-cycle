@@ -124,6 +124,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email,
       password,
     });
+
+    if (!error) {
+      // After successful sign in, ensure the special admin email is approved and role set
+      try {
+        const adminEmail = (import.meta.env.VITE_ADMIN_EMAIL as string) || 'aloisio.junior@rotatransportes.com.br';
+        // fetch session user
+        const { data: sessionData } = await supabase.auth.getSession();
+        const userId = sessionData?.session?.user?.id;
+        if (userId) {
+          const { data: profileData } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
+          if (profileData && profileData.email === adminEmail && profileData.approval_status === 'pending') {
+            await supabase.from('profiles').update({ approval_status: 'approved', role: 'supervisor' }).eq('id', userId);
+            // refresh local profile state
+            await fetchProfile(userId);
+          }
+        }
+      } catch (e) {
+        console.error('post-signin auto-approve failed:', e);
+      }
+    }
+
     return { error };
   };
 
