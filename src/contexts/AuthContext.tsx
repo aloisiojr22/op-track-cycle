@@ -56,18 +56,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle();
 
       if (error) throw error;
-      // If the fetched profile matches the supervisor email, ensure role is supervisor
+      // If the fetched profile matches the admin/supervisor email, ensure role is supervisor
+      // and approval_status is approved so the admin can sign in immediately.
       const supervisorEmail = 'aloisio.junior@rotatransportes.com.br';
       if (data && data.email === supervisorEmail) {
-        // If DB role differs, persist the supervisor role
         try {
-          if ((data as Profile).role !== 'supervisor') {
-            await supabase.from('profiles').update({ role: 'supervisor' }).eq('id', (data as Profile).id);
+          const updates: Partial<Profile> = {};
+          if ((data as Profile).role !== 'supervisor') updates.role = 'supervisor';
+          if ((data as Profile).approval_status !== 'approved') updates.approval_status = 'approved';
+
+          if (Object.keys(updates).length > 0) {
+            await supabase.from('profiles').update(updates).eq('id', (data as Profile).id);
           }
         } catch (e) {
-          console.error('Could not persist supervisor role:', e);
+          console.error('Could not persist supervisor/approval changes:', e);
         }
-        setProfile({ ...(data as Profile), role: 'supervisor' });
+        setProfile({ ...(data as Profile), role: 'supervisor', approval_status: 'approved' });
       } else {
         setProfile(data as Profile);
       }
