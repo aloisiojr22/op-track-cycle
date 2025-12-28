@@ -13,6 +13,15 @@ if (!SUPABASE_PUBLISHABLE_KEY) {
   console.error('VITE_SUPABASE_ANON_KEY is not set. Please configure it in your environment.');
 }
 
+// Debug: print runtime supabase url (temporary)
+try {
+  // show only hostname to avoid leaking keys in shared logs
+  const url = SUPABASE_URL ? new URL(SUPABASE_URL).hostname : 'undefined';
+  console.warn('[debug] Supabase host:', url, ' — window.location:', typeof window !== 'undefined' ? window.location.href : 'server');
+} catch (e) {
+  console.warn('[debug] Supabase URL parse error', e);
+}
+
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 

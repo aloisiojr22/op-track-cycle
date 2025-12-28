@@ -56,7 +56,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle();
 
       if (error) throw error;
-      setProfile(data as Profile);
+      // If the fetched profile matches the supervisor email, ensure role is supervisor
+      const supervisorEmail = 'aloisio.junior@rotatransportes.com.br';
+      if (data && data.email === supervisorEmail) {
+        // If DB role differs, persist the supervisor role
+        try {
+          if ((data as Profile).role !== 'supervisor') {
+            await supabase.from('profiles').update({ role: 'supervisor' }).eq('id', (data as Profile).id);
+          }
+        } catch (e) {
+          console.error('Could not persist supervisor role:', e);
+        }
+        setProfile({ ...(data as Profile), role: 'supervisor' });
+      } else {
+        setProfile(data as Profile);
+      }
     } catch (error) {
       console.error('Error fetching profile:', error);
       setProfile(null);
