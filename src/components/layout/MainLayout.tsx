@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from './Sidebar';
+import { PendingAlert } from './PendingAlert';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -12,6 +13,8 @@ const MainLayout: React.FC = () => {
   const { toast } = useToast();
   const [pendingCount, setPendingCount] = useState(0);
   const [pendingUsersCount, setPendingUsersCount] = useState(0);
+  const [showPendingAlert, setShowPendingAlert] = useState(false);
+  const [userJustLogged, setUserJustLogged] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -69,33 +72,21 @@ const MainLayout: React.FC = () => {
     };
   }, [user, profile]);
 
-  // Show notification for pending items on mount
+  // Show pending alert modal on login (first time only)
   useEffect(() => {
-    if (pendingCount > 0) {
-      toast({
-        title: `${pendingCount} Pendência(s)`,
-        description: 'Você tem itens pendentes aguardando resolução.',
-        variant: 'default',
-      });
+    if (!user || loading) return;
+    
+    if (!userJustLogged) {
+      setUserJustLogged(true);
+      // Show alert after a short delay to ensure everything is loaded
+      const timeout = setTimeout(() => {
+        if (pendingCount > 0) {
+          setShowPendingAlert(true);
+        }
+      }, 800);
+      return () => clearTimeout(timeout);
     }
-  }, [pendingCount]);
-
-  // Announce pending count with voice once on login/update
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (!user) return;
-    if (pendingCount <= 0) return;
-
-    try {
-      const msg = `${pendingCount} pendência${pendingCount > 1 ? 's' : ''} no quadro.`;
-      const utterance = new SpeechSynthesisUtterance(msg);
-      speechSynthesis.cancel();
-      speechSynthesis.speak(utterance);
-    } catch (e) {
-      // ignore if speech API is not available
-      console.warn('SpeechSynthesis unavailable', e);
-    }
-  }, [pendingCount, user]);
+  }, [user, loading, pendingCount, userJustLogged]);
 
   // Subscribe to chat messages for notifications
   useEffect(() => {
@@ -171,6 +162,14 @@ const MainLayout: React.FC = () => {
           <Outlet />
         </div>
       </main>
+
+      {/* Pending Alert Modal */}
+      <PendingAlert
+        pendingCount={pendingCount}
+        open={showPendingAlert}
+        onOpenChange={setShowPendingAlert}
+        onGotoPending={() => navigate('/pending')}
+      />
     </div>
   );
 };
