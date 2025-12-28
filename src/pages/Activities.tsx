@@ -166,7 +166,7 @@ const Activities: React.FC = () => {
     }
   };
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (forceNotStarted = false) => {
     if (!user) return;
     
     setLoading(true);
@@ -204,7 +204,11 @@ const Activities: React.FC = () => {
       });
       setDailyRecords(recordsMap);
       // Consider 'pendente' records as not indicative of a started day.
-      setDayStarted(records && records.some((r: any) => r.status && r.status !== 'pendente'));
+      if (forceNotStarted) {
+        setDayStarted(false);
+      } else {
+        setDayStarted(records && records.some((r: any) => r.status && r.status !== 'pendente'));
+      }
       
       // Fetch stats for current period
       const { start, end } = getDateRange(period);
@@ -423,8 +427,8 @@ const Activities: React.FC = () => {
 
       setDayStarted(false);
       setDailyRecords(new Map());
-      // Refresh data to reflect persisted changes
-      await fetchData();
+      // Refresh data to reflect persisted changes but force UI to treat day as not started
+      await fetchData(true);
     } catch (error) {
       console.error('Error ending day:', error);
       toast({

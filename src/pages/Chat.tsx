@@ -35,9 +35,11 @@ interface Message {
 const Chat: React.FC = () => {
   const { user, profile } = useAuth();
   const { toast } = useToast();
-
   const [messages, setMessages] = useState<Message[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(false);
+  const [newMessage, setNewMessage] = useState('');
+  const [sending, setSending] = useState(false);
 
   useEffect(() => {
     if (!user) return;
