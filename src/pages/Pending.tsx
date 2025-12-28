@@ -353,20 +353,20 @@ const Pending: React.FC = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header - Enhanced */}
-      <div className="bg-gradient-to-r from-orange-600 via-red-600 to-rose-600 rounded-xl p-8 text-white shadow-lg">
+      <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-lg p-8 text-white shadow-lg border border-slate-700">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold flex items-center gap-2">
-              ⚠️ Pendências e Solicitações
+              Pendências e Solicitações
             </h1>
-            <p className="text-orange-100 text-sm mt-2">
+            <p className="text-slate-300 text-sm mt-2">
               Gerencie atividades pendentes e solicitações especiais
             </p>
           </div>
           
           <Button
             onClick={() => setNewRequestModal(true)}
-            className="bg-white text-orange-600 hover:bg-orange-50 font-semibold shadow-md"
+            className="bg-white text-slate-800 hover:bg-slate-100 font-semibold shadow-md"
           >
             <Plus className="mr-2 h-5 w-5" />
             Nova Solicitação

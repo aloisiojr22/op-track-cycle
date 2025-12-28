@@ -624,13 +624,13 @@ const Activities: React.FC = () => {
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Header - Enhanced Gradient */}
-      <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-600 rounded-xl p-8 text-white shadow-lg">
+      <div className="bg-gradient-to-r from-slate-800 to-slate-900 rounded-lg p-8 text-white shadow-lg border border-slate-700">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
             <h1 className="text-3xl font-bold">
-              Olá, {profile?.full_name?.split(' ')[0] || 'Usuário'}! 👋
+              Minhas Atividades
             </h1>
-            <p className="text-blue-100 text-sm mt-2">
+            <p className="text-slate-300 text-sm mt-2">
               {format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
             </p>
           </div>

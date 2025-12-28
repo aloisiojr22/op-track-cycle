@@ -200,38 +200,38 @@ const Chat: React.FC = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col animate-fade-in bg-gradient-to-b from-background to-muted/30">
-      <div className="flex items-center justify-between mb-4 pb-4 border-b">
+    <div className="h-[calc(100vh-120px)] flex flex-col animate-fade-in bg-slate-50 dark:bg-slate-900">
+      <div className="flex items-center justify-between mb-4 pb-4 border-b border-slate-200 dark:border-slate-800">
         <div className="flex-1">
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-3">
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full p-2">
+          <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-3">
+            <div className="bg-blue-600 rounded-lg p-2">
               <MessageSquare className="h-6 w-6 text-white" />
             </div>
-            Chat do Grupo
+            Mensagens
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">Comunicação em tempo real</p>
+          <p className="text-slate-600 dark:text-slate-400 text-sm mt-1">Comunicação em tempo real com a equipe</p>
         </div>
         <div className="text-right text-sm">
-          <div className="font-semibold text-foreground">{messages.length}</div>
-          <p className="text-xs text-muted-foreground">mensagens</p>
+          <div className="font-semibold text-slate-900 dark:text-white">{messages.length}</div>
+          <p className="text-xs text-slate-600 dark:text-slate-400">mensagens</p>
         </div>
       </div>
 
-      <Card className="flex-1 flex flex-col min-h-0 shadow-lg">
-        <CardHeader className="pb-3 border-b flex-shrink-0 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
+      <Card className="flex-1 flex flex-col min-h-0 shadow-lg border-slate-200 dark:border-slate-800">
+        <CardHeader className="pb-3 border-b border-slate-200 dark:border-slate-800 flex-shrink-0 bg-slate-100 dark:bg-slate-800">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="h-5 w-5 text-blue-600" />
-              {recipient === 'all' ? '💬 Chat Geral' : `🔒 Privado com ${users.find(u => u.id === recipient)?.full_name || 'Usuário'}`}
+            <CardTitle className="text-base flex items-center gap-2 text-slate-900 dark:text-white">
+              <MessageSquare className="h-5 w-5 text-blue-600" />
+              {recipient === 'all' ? 'Conversa Geral' : `Privado: ${users.find(u => u.id === recipient)?.full_name || 'Usuário'}`}
             </CardTitle>
             <select
               value={recipient}
               onChange={(e) => { setRecipient(e.target.value); setLoading(true); fetchMessages(); }}
-              className="px-3 py-1 rounded-lg border border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-800 text-sm font-medium"
+              className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-sm font-medium text-slate-900 dark:text-white"
             >
-              <option value="all">📢 Geral (todos)</option>
+              <option value="all">Conversa Geral</option>
               {users.map((u) => (
-                <option key={u.id} value={u.id}>👤 {u.full_name || u.email}</option>
+                <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
               ))}
             </select>
           </div>
@@ -308,24 +308,24 @@ const Chat: React.FC = () => {
           )}
         </CardContent>
 
-        <div className="p-4 border-t flex-shrink-0 bg-gradient-to-t from-blue-50 to-transparent dark:from-blue-900/10">
+        <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex-shrink-0 bg-slate-100 dark:bg-slate-800">
           {profile?.approval_status !== 'approved' ? (
-            <div className="text-xs text-muted-foreground bg-yellow-500/15 border border-yellow-500/30 rounded-lg p-3 text-center font-medium">
-              ⏳ Sua conta está aguardando aprovação para enviar mensagens.
+            <div className="text-xs text-slate-600 dark:text-slate-400 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-lg p-3 text-center font-medium">
+              Sua conta está em análise de aprovação para enviar mensagens.
             </div>
           ) : (
             <form onSubmit={sendMessage} className="flex gap-2">
               <Input
-                placeholder={recipient === 'all' ? '💬 Digite uma mensagem para todos...' : '🔒 Mensagem privada...'}
+                placeholder={recipient === 'all' ? 'Digite uma mensagem para a equipe...' : 'Digite uma mensagem privada...'}
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 disabled={sending}
-                className="flex-1 rounded-full border-2 border-blue-300 dark:border-blue-700 focus:border-blue-600 focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50"
+                className="flex-1 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 focus:border-blue-600 focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50"
               />
               <Button 
                 type="submit" 
                 disabled={sending || !newMessage.trim()} 
-                className="flex-shrink-0 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full px-6 shadow-md"
+                className="flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-6 shadow-md"
               >
                 {sending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
               </Button>
