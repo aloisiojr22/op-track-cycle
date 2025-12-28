@@ -18,6 +18,7 @@
     "strict": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
+    "types": ["node"],
     "noImplicitAny": false,
     "noFallthroughCasesInSwitch": false,
 
