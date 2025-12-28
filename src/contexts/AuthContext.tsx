@@ -56,9 +56,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle();
 
       if (error) throw error;
-      // If the fetched profile matches the admin/supervisor email, ensure role is supervisor
-      // and approval_status is approved so the admin can sign in immediately.
-      const supervisorEmail = 'aloisio.junior@rotatransportes.com.br';
+      // Read admin/supervisor email from environment with a sensible fallback.
+      // Set `VITE_ADMIN_EMAIL` in your local environment or CI to change this.
+      const supervisorEmail = (import.meta.env.VITE_ADMIN_EMAIL as string) || 'aloisio.junior@rotatransportes.com.br';
       if (data && data.email === supervisorEmail) {
         try {
           const updates: Partial<Profile> = {};
