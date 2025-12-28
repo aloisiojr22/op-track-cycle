@@ -200,41 +200,41 @@ const Chat: React.FC = () => {
   };
 
   return (
-    <div className="h-[calc(100vh-120px)] flex flex-col animate-fade-in">
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <MessageSquare className="h-6 w-6" />
+    <div className="h-[calc(100vh-120px)] flex flex-col animate-fade-in bg-gradient-to-b from-background to-muted/30">
+      <div className="flex items-center justify-between mb-4 pb-4 border-b">
+        <div className="flex-1">
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-3">
+            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-full p-2">
+              <MessageSquare className="h-6 w-6 text-white" />
+            </div>
             Chat do Grupo
           </h1>
-          <p className="text-muted-foreground text-sm">
-            Comunicação em tempo real com toda equipe
-          </p>
+          <p className="text-muted-foreground text-sm mt-1">Comunicação em tempo real</p>
         </div>
-        <div className="flex items-center gap-3">
-          <label className="text-xs text-muted-foreground">Conversa:</label>
-          <select
-            value={recipient}
-            onChange={(e) => { setRecipient(e.target.value); setLoading(true); fetchMessages(); }}
-            className="px-2 py-1 rounded border"
-          >
-            <option value="all">Geral (todos)</option>
-            {users.map((u) => (
-              <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
-            ))}
-          </select>
-        </div>
-        <div className="text-right text-xs text-muted-foreground">
-          <p>Total de mensagens: {messages.length}</p>
+        <div className="text-right text-sm">
+          <div className="font-semibold text-foreground">{messages.length}</div>
+          <p className="text-xs text-muted-foreground">mensagens</p>
         </div>
       </div>
 
-      <Card className="flex-1 flex flex-col min-h-0">
-        <CardHeader className="pb-2 border-b flex-shrink-0">
-          <CardTitle className="text-sm flex items-center gap-2">
-            <Users className="h-4 w-4" />
-            Chat Geral
-          </CardTitle>
+      <Card className="flex-1 flex flex-col min-h-0 shadow-lg">
+        <CardHeader className="pb-3 border-b flex-shrink-0 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="h-5 w-5 text-blue-600" />
+              {recipient === 'all' ? '💬 Chat Geral' : `🔒 Privado com ${users.find(u => u.id === recipient)?.full_name || 'Usuário'}`}
+            </CardTitle>
+            <select
+              value={recipient}
+              onChange={(e) => { setRecipient(e.target.value); setLoading(true); fetchMessages(); }}
+              className="px-3 py-1 rounded-lg border border-blue-300 dark:border-blue-700 bg-white dark:bg-slate-800 text-sm font-medium"
+            >
+              <option value="all">📢 Geral (todos)</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>👤 {u.full_name || u.email}</option>
+              ))}
+            </select>
+          </div>
         </CardHeader>
 
         <CardContent className="flex-1 p-4 overflow-hidden">
@@ -308,22 +308,26 @@ const Chat: React.FC = () => {
           )}
         </CardContent>
 
-        <div className="p-4 border-t flex-shrink-0">
+        <div className="p-4 border-t flex-shrink-0 bg-gradient-to-t from-blue-50 to-transparent dark:from-blue-900/10">
           {profile?.approval_status !== 'approved' ? (
-            <div className="text-xs text-muted-foreground bg-yellow-500/10 border border-yellow-500/30 rounded p-2 text-center">
-              Sua conta está aguardando aprovação para enviar mensagens.
+            <div className="text-xs text-muted-foreground bg-yellow-500/15 border border-yellow-500/30 rounded-lg p-3 text-center font-medium">
+              ⏳ Sua conta está aguardando aprovação para enviar mensagens.
             </div>
           ) : (
             <form onSubmit={sendMessage} className="flex gap-2">
               <Input
-                placeholder="Digite sua mensagem..."
+                placeholder={recipient === 'all' ? '💬 Digite uma mensagem para todos...' : '🔒 Mensagem privada...'}
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
                 disabled={sending}
-                className="flex-1"
+                className="flex-1 rounded-full border-2 border-blue-300 dark:border-blue-700 focus:border-blue-600 focus:ring-2 focus:ring-blue-400 focus:ring-opacity-50"
               />
-              <Button type="submit" disabled={sending || !newMessage.trim()} className="flex-shrink-0">
-                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+              <Button 
+                type="submit" 
+                disabled={sending || !newMessage.trim()} 
+                className="flex-shrink-0 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full px-6 shadow-md"
+              >
+                {sending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
               </Button>
             </form>
           )}

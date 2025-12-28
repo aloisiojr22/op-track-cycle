@@ -622,38 +622,40 @@ const Activities: React.FC = () => {
   }
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-        <div>
-          <h1 className="text-xl font-bold text-foreground">
-            Olá, {profile?.full_name?.split(' ')[0] || 'Usuário'}!
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {format(new Date(), "EEEE, d 'de' MMMM", { locale: ptBR })}
-          </p>
-        </div>
+    <div className="space-y-6 animate-fade-in">
+      {/* Header - Enhanced Gradient */}
+      <div className="bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-600 rounded-xl p-8 text-white shadow-lg">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold">
+              Olá, {profile?.full_name?.split(' ')[0] || 'Usuário'}! 👋
+            </h1>
+            <p className="text-blue-100 text-sm mt-2">
+              {format(new Date(), "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
+            </p>
+          </div>
         
-        <div className="flex items-center gap-2">
-          <Tabs value={period} onValueChange={(v) => setPeriod(v as PeriodFilter)} className="w-auto">
-            <TabsList className="h-8">
-              <TabsTrigger value="today" className="text-xs px-3 h-7">Hoje</TabsTrigger>
-              <TabsTrigger value="week" className="text-xs px-3 h-7">Semana</TabsTrigger>
-              <TabsTrigger value="month" className="text-xs px-3 h-7">Mês</TabsTrigger>
-            </TabsList>
-          </Tabs>
-          
-          {!dayStarted ? (
-            <Button onClick={startDay} disabled={saving || userActivities.length === 0} size="sm" className="h-8 text-xs bg-green-600 hover:bg-green-700">
-              {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Play className="h-3 w-3 mr-1" />}
-              Iniciar
-            </Button>
-          ) : (
-            <Button onClick={endDay} disabled={saving} size="sm" className="h-8 text-xs bg-red-600 hover:bg-red-700">
-              {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Square className="h-3 w-3 mr-1" />}
-              Finalizar
-            </Button>
-          )}
+          <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+            <Tabs value={period} onValueChange={(v) => setPeriod(v as PeriodFilter)} className="w-auto">
+              <TabsList className="h-9 bg-white/20 border border-white/30">
+                <TabsTrigger value="today" className="text-xs px-4 h-8 text-white data-[state=active]:bg-white/30">Hoje</TabsTrigger>
+                <TabsTrigger value="week" className="text-xs px-4 h-8 text-white data-[state=active]:bg-white/30">Semana</TabsTrigger>
+                <TabsTrigger value="month" className="text-xs px-4 h-8 text-white data-[state=active]:bg-white/30">Mês</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            
+            {!dayStarted ? (
+              <Button onClick={startDay} disabled={saving || userActivities.length === 0} size="sm" className="h-9 text-sm bg-green-500 hover:bg-green-600 text-white font-semibold shadow-md">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Play className="h-4 w-4 mr-1" />}
+                Iniciar Dia
+              </Button>
+            ) : (
+              <Button onClick={endDay} disabled={saving} size="sm" className="h-9 text-sm bg-red-500 hover:bg-red-600 text-white font-semibold shadow-md">
+                {saving ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Square className="h-4 w-4 mr-1" />}
+                Finalizar Dia
+              </Button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -700,84 +702,94 @@ const Activities: React.FC = () => {
       )}
 
       {/* KPI Cards */}
-      <div className="grid gap-3 grid-cols-2 lg:grid-cols-4">
-        <Card className="p-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground">Concluídas</p>
-              <p className="text-2xl font-bold text-green-600">{stats.completed}</p>
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        <Card className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/20 border-green-200 dark:border-green-700 hover:shadow-lg transition-shadow">
+          <div className="pt-6 px-4 pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-green-600 dark:text-green-300 font-medium">Concluídas</p>
+                <p className="text-3xl font-bold text-green-700 dark:text-green-400 mt-1">{stats.completed}</p>
+              </div>
+              <CheckCircle2 className="h-8 w-8 text-green-500 opacity-70" />
             </div>
-            <CheckCircle2 className="h-6 w-6 text-green-500 opacity-50" />
-          </div>
-          {period !== 'today' && (
-            <div className="mt-1 flex items-center gap-1 text-xs">
-              {completedDiff > 0 ? (
-                <ArrowUp className="h-3 w-3 text-green-500" />
-              ) : completedDiff < 0 ? (
-                <ArrowDown className="h-3 w-3 text-red-500" />
-              ) : (
-                <Minus className="h-3 w-3 text-muted-foreground" />
-              )}
-              <span className={cn(
-                completedDiff > 0 && "text-green-600",
-                completedDiff < 0 && "text-red-600",
-                completedDiff === 0 && "text-muted-foreground"
-              )}>
-                {completedDiff > 0 ? '+' : ''}{completedDiff} vs {getPeriodLabel().previous.toLowerCase()}
-              </span>
-            </div>
-          )}
-        </Card>
-
-        <Card className="p-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground">Em Andamento</p>
-              <p className="text-2xl font-bold text-blue-600">{stats.inProgress}</p>
-            </div>
-            <Clock className="h-6 w-6 text-blue-500 opacity-50" />
+            {period !== 'today' && (
+              <div className="mt-2 flex items-center gap-1 text-xs">
+                {completedDiff > 0 ? (
+                  <ArrowUp className="h-3 w-3 text-green-500" />
+                ) : completedDiff < 0 ? (
+                  <ArrowDown className="h-3 w-3 text-red-500" />
+                ) : (
+                  <Minus className="h-3 w-3 text-muted-foreground" />
+                )}
+                <span className={cn(
+                  "font-medium",
+                  completedDiff > 0 && "text-green-600 dark:text-green-400",
+                  completedDiff < 0 && "text-red-600 dark:text-red-400",
+                  completedDiff === 0 && "text-muted-foreground"
+                )}>
+                  {completedDiff > 0 ? '+' : ''}{completedDiff} vs {getPeriodLabel().previous.toLowerCase()}
+                </span>
+              </div>
+            )}
           </div>
         </Card>
 
-        <Card className="p-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground">Pendentes</p>
-              <p className="text-2xl font-bold text-yellow-600">{stats.pending}</p>
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/20 border-blue-200 dark:border-blue-700 hover:shadow-lg transition-shadow">
+          <div className="pt-6 px-4 pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-blue-600 dark:text-blue-300 font-medium">Em Andamento</p>
+                <p className="text-3xl font-bold text-blue-700 dark:text-blue-400 mt-1">{stats.inProgress}</p>
+              </div>
+              <Clock className="h-8 w-8 text-blue-500 opacity-70" />
             </div>
-            <AlertTriangle className="h-6 w-6 text-yellow-500 opacity-50" />
           </div>
         </Card>
 
-        <Card className="p-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-muted-foreground">Taxa</p>
-              <p className="text-2xl font-bold text-primary">{completionRate}%</p>
+        <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/30 dark:to-yellow-800/20 border-yellow-200 dark:border-yellow-700 hover:shadow-lg transition-shadow">
+          <div className="pt-6 px-4 pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-yellow-600 dark:text-yellow-300 font-medium">Pendentes</p>
+                <p className="text-3xl font-bold text-yellow-700 dark:text-yellow-400 mt-1">{stats.pending}</p>
+              </div>
+              <AlertTriangle className="h-8 w-8 text-yellow-500 opacity-70" />
             </div>
-            <Target className="h-6 w-6 text-primary opacity-50" />
           </div>
-          <div className="mt-1 h-1.5 w-full rounded-full bg-muted">
-            <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${completionRate}%` }} />
-          </div>
-          {period !== 'today' && (
-            <div className="mt-1 flex items-center gap-1 text-xs">
-              {rateDiff > 0 ? (
-                <TrendingUp className="h-3 w-3 text-green-500" />
-              ) : rateDiff < 0 ? (
-                <TrendingDown className="h-3 w-3 text-red-500" />
-              ) : (
-                <Minus className="h-3 w-3 text-muted-foreground" />
-              )}
-              <span className={cn(
-                rateDiff > 0 && "text-green-600",
-                rateDiff < 0 && "text-red-600",
-                rateDiff === 0 && "text-muted-foreground"
-              )}>
-                {rateDiff > 0 ? '+' : ''}{rateDiff}% vs {getPeriodLabel().previous.toLowerCase()}
-              </span>
+        </Card>
+
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/20 border-purple-200 dark:border-purple-700 hover:shadow-lg transition-shadow">
+          <div className="pt-6 px-4 pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-purple-600 dark:text-purple-300 font-medium">Taxa de Conclusão</p>
+                <p className="text-3xl font-bold text-purple-700 dark:text-purple-400 mt-1">{completionRate}%</p>
+              </div>
+              <Target className="h-8 w-8 text-purple-500 opacity-70" />
             </div>
-          )}
+            <div className="mt-2 h-2 w-full rounded-full bg-purple-200 dark:bg-purple-700/50">
+              <div className="h-full rounded-full bg-purple-600 transition-all" style={{ width: `${completionRate}%` }} />
+            </div>
+            {period !== 'today' && (
+              <div className="mt-2 flex items-center gap-1 text-xs">
+                {rateDiff > 0 ? (
+                  <TrendingUp className="h-3 w-3 text-green-500" />
+                ) : rateDiff < 0 ? (
+                  <TrendingDown className="h-3 w-3 text-red-500" />
+                ) : (
+                  <Minus className="h-3 w-3 text-muted-foreground" />
+                )}
+                <span className={cn(
+                  "font-medium",
+                  rateDiff > 0 && "text-green-600 dark:text-green-400",
+                  rateDiff < 0 && "text-red-600 dark:text-red-400",
+                  rateDiff === 0 && "text-muted-foreground"
+                )}>
+                  {rateDiff > 0 ? '+' : ''}{rateDiff}% vs {getPeriodLabel().previous.toLowerCase()}
+                </span>
+              </div>
+            )}
+          </div>
         </Card>
       </div>
 

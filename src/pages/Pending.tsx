@@ -352,55 +352,65 @@ const Pending: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Pendências e Solicitações</h1>
-          <p className="text-muted-foreground">
-            Gerencie atividades pendentes e solicitações especiais
-          </p>
+      {/* Header - Enhanced */}
+      <div className="bg-gradient-to-r from-orange-600 via-red-600 to-rose-600 rounded-xl p-8 text-white shadow-lg">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-2">
+              ⚠️ Pendências e Solicitações
+            </h1>
+            <p className="text-orange-100 text-sm mt-2">
+              Gerencie atividades pendentes e solicitações especiais
+            </p>
+          </div>
+          
+          <Button
+            onClick={() => setNewRequestModal(true)}
+            className="bg-white text-orange-600 hover:bg-orange-50 font-semibold shadow-md"
+          >
+            <Plus className="mr-2 h-5 w-5" />
+            Nova Solicitação
+          </Button>
         </div>
-        
-        <Button
-          onClick={() => setNewRequestModal(true)}
-          className="btn-corporate-primary"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Nova Solicitação
-        </Button>
       </div>
 
-      {/* Stats */}
+      {/* Stats - Enhanced */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card>
+        <Card className="bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/30 dark:to-yellow-800/20 border-yellow-200 dark:border-yellow-700 hover:shadow-lg transition-shadow">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-yellow-500" />
+            <div className="flex items-center gap-3">
+              <div className="bg-yellow-600/20 p-3 rounded-lg">
+                <AlertTriangle className="h-6 w-6 text-yellow-600" />
+              </div>
               <div>
-                <div className="text-2xl font-bold">{pendingItems.length}</div>
-                <p className="text-xs text-muted-foreground">Total de Pendências</p>
+                <div className="text-2xl font-bold text-yellow-700">{pendingItems.length}</div>
+                <p className="text-xs text-yellow-600 font-medium">Total de Pendências</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/20 border-blue-200 dark:border-blue-700 hover:shadow-lg transition-shadow">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
+            <div className="flex items-center gap-3">
+              <div className="bg-blue-600/20 p-3 rounded-lg">
+                <FileText className="h-6 w-6 text-blue-600" />
+              </div>
               <div>
-                <div className="text-2xl font-bold">{activityPendingItems.length}</div>
-                <p className="text-xs text-muted-foreground">Atividades Pendentes</p>
+                <div className="text-2xl font-bold text-blue-700">{activityPendingItems.length}</div>
+                <p className="text-xs text-blue-600 font-medium">Atividades Pendentes</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/20 border-purple-200 dark:border-purple-700 hover:shadow-lg transition-shadow">
           <CardContent className="pt-6">
-            <div className="flex items-center gap-2">
-              <Mail className="h-5 w-5 text-accent" />
+            <div className="flex items-center gap-3">
+              <div className="bg-purple-600/20 p-3 rounded-lg">
+                <Mail className="h-6 w-6 text-purple-600" />
+              </div>
               <div>
-                <div className="text-2xl font-bold">{specialRequests.length}</div>
-                <p className="text-xs text-muted-foreground">Solicitações Especiais</p>
+                <div className="text-2xl font-bold text-purple-700">{specialRequests.length}</div>
+                <p className="text-xs text-purple-600 font-medium">Solicitações Especiais</p>
               </div>
             </div>
           </CardContent>

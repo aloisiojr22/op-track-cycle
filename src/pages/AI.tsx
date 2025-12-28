@@ -36,34 +36,71 @@ const AI: React.FC = () => {
   };
 
   return (
-    <div className="space-y-4 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Assistente IA</h1>
-          <p className="text-sm text-muted-foreground">Faça perguntas rápidas ao sistema (pendências, uso, chat).</p>
+    <div className="space-y-6 animate-fade-in">
+      <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-fuchsia-600 rounded-xl p-8 text-white shadow-lg">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold flex items-center gap-3">
+              🤖 Assistente IA
+            </h1>
+            <p className="text-purple-100 text-sm mt-2">Pergunte sobre pendências, atividades, chat e aprenda a usar o sistema</p>
+          </div>
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Converse com a IA</CardTitle>
+      <Card className="shadow-lg border-purple-200 dark:border-purple-800">
+        <CardHeader className="bg-gradient-to-r from-purple-50 to-fuchsia-50 dark:from-purple-900/20 dark:to-fuchsia-900/20 rounded-t-lg">
+          <CardTitle className="flex items-center gap-2">
+            <span className="text-2xl">💬</span> Converse com a IA
+          </CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            <Textarea value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Pergunte algo (ex: quantas pendências existem?)" rows={4} />
+        <CardContent className="pt-6">
+          <div className="space-y-4">
+            <div className="relative">
+              <Textarea 
+                value={query} 
+                onChange={(e) => setQuery(e.target.value)} 
+                placeholder="Exemplos: Quantas pendências existem? Como usar o chat? Como finalizar atividades?" 
+                rows={4}
+                className="border-2 border-purple-300 dark:border-purple-700 focus:border-purple-600 focus:ring-2 focus:ring-purple-400 focus:ring-opacity-50 rounded-lg"
+              />
+            </div>
             <div className="flex gap-2">
-              <Button onClick={handleAsk} disabled={loading || !query.trim()}>
-                {loading ? 'Aguarde...' : 'Perguntar'}
+              <Button 
+                onClick={handleAsk} 
+                disabled={loading || !query.trim()}
+                className="bg-gradient-to-r from-purple-600 to-fuchsia-600 hover:from-purple-700 hover:to-fuchsia-700 text-white font-semibold shadow-md px-6"
+              >
+                {loading ? '⏳ Processando...' : '✨ Perguntar'}
               </Button>
-              <Button variant="outline" onClick={() => { setQuery(''); setAnswer(''); }}>Limpar</Button>
+              <Button 
+                variant="outline" 
+                onClick={() => { setQuery(''); setAnswer(''); }}
+                className="border-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/20"
+              >
+                Limpar
+              </Button>
             </div>
             {answer && (
-              <div className="p-3 bg-muted/30 rounded">
-                <strong>Resposta:</strong>
-                <p className="mt-2">{answer}</p>
+              <div className="p-4 bg-gradient-to-br from-purple-50 to-fuchsia-50 dark:from-purple-900/30 dark:to-fuchsia-900/30 rounded-lg border border-purple-200 dark:border-purple-700">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl mt-1">🔮</span>
+                  <div>
+                    <strong className="text-purple-700 dark:text-purple-300">Resposta da IA:</strong>
+                    <p className="mt-2 text-foreground">{answer}</p>
+                  </div>
+                </div>
               </div>
             )}
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-md bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+        <CardContent className="pt-6">
+          <p className="text-sm text-foreground">
+            <span className="font-semibold">💡 Dica:</span> Você pode fazer perguntas sobre pendências, atividades, chat, painel admin e tudo mais relacionado ao sistema. A IA responderá com informações relevantes!
+          </p>
         </CardContent>
       </Card>
     </div>
