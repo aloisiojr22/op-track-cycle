@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
 const MainLayout: React.FC = () => {
-  const { user, profile, loading } = useAuth();
+  const { user, profile, loading, refreshProfile } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [pendingCount, setPendingCount] = useState(0);
@@ -23,14 +23,30 @@ const MainLayout: React.FC = () => {
   }, [user, loading, navigate]);
 
   useEffect(() => {
+    // If this is the special admin email and still pending, auto-approve locally
+    const adminEmail = (import.meta.env.VITE_ADMIN_EMAIL as string) || 'aloisio.junior@rotatransportes.com.br';
     if (!loading && profile && profile.approval_status === 'pending') {
-      toast({
-        title: 'Aguardando aprovação',
-        description: 'Sua conta está pendente de aprovação pelo administrador.',
-        variant: 'default',
-      });
+      if (profile.email === adminEmail) {
+        (async () => {
+          try {
+            await supabase.from('profiles').update({ approval_status: 'approved', role: 'supervisor' }).eq('id', profile.id);
+            // refresh profile from AuthContext
+            await refreshProfile();
+            toast({ title: 'Conta aprovada', description: 'Seu usuário foi aprovado automaticamente.', variant: 'default' });
+          } catch (e) {
+            console.error('Auto-approve failed:', e);
+            toast({ title: 'Aguardando aprovação', description: 'Sua conta está pendente de aprovação pelo administrador.', variant: 'default' });
+          }
+        })();
+      } else {
+        toast({
+          title: 'Aguardando aprovação',
+          description: 'Sua conta está pendente de aprovação pelo administrador.',
+          variant: 'default',
+        });
+      }
     }
-  }, [profile, loading, toast]);
+  }, [profile, loading, toast, refreshProfile]);
 
   useEffect(() => {
     if (!user) return;
