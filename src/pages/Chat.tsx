@@ -40,12 +40,24 @@ const Chat: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [users, setUsers] = useState<Profile[]>([]);
+  const [recipient, setRecipient] = useState<string>('all'); // 'all' or user id
 
   useEffect(() => {
     if (!user) return;
 
     setLoading(true);
     fetchMessages();
+
+    // Fetch approved users for private messages
+    (async () => {
+      const { data: usersData } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, role')
+        .eq('approval_status', 'approved')
+        .neq('id', user.id);
+      setUsers(usersData || []);
+    })();
 
     // Subscribe to new broadcast messages (group chat)
     const channel = supabase
@@ -55,8 +67,13 @@ const Chat: React.FC = () => {
         { event: 'INSERT', schema: 'public', table: 'chat_messages' },
         (payload) => {
           const newMsg = payload.new as Message;
-          // Show all broadcast messages
-          if (newMsg.is_broadcast || newMsg.receiver_id === null) {
+          // Add new message if it's broadcast or involves current user
+          if (
+            newMsg.is_broadcast ||
+            newMsg.receiver_id === null ||
+            newMsg.sender_id === user.id ||
+            newMsg.receiver_id === user.id
+          ) {
             setMessages((prev) => [...prev, newMsg]);
             scrollToBottom();
           }
@@ -81,17 +98,23 @@ const Chat: React.FC = () => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
+      // Fetch broadcast messages and direct messages involving the user
+      const baseQuery = supabase
         .from('chat_messages')
-        .select(
-          `
-          *,
-          sender:profiles!inner(id, full_name, email, role)
-        `
-        )
-        .eq('is_broadcast', true)
+        .select(`*, sender:profiles!inner(id, full_name, email, role)`) 
         .order('created_at', { ascending: true })
         .limit(500);
+
+      let query = baseQuery;
+      if (recipient === 'all') {
+        query = baseQuery.or(`is_broadcast.eq.true,receiver_id.is.null`);
+      } else {
+        // private conversation between current user and selected recipient
+        const otherId = recipient;
+        query = baseQuery.or(`(sender_id.eq.${user.id},receiver_id.eq.${otherId}),(sender_id.eq.${otherId},receiver_id.eq.${user.id})`);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       setMessages((data as Message[]) || []);
@@ -122,12 +145,18 @@ const Chat: React.FC = () => {
 
     setSending(true);
     try {
-      const payload = {
+      const payload: any = {
         sender_id: user.id,
-        receiver_id: null,
         message: newMessage.trim(),
-        is_broadcast: true,
       };
+
+      if (recipient === 'all') {
+        payload.receiver_id = null;
+        payload.is_broadcast = true;
+      } else {
+        payload.receiver_id = recipient;
+        payload.is_broadcast = false;
+      }
 
       const { error, data } = await supabase.from('chat_messages').insert([payload]);
 
@@ -181,6 +210,19 @@ const Chat: React.FC = () => {
           <p className="text-muted-foreground text-sm">
             Comunicação em tempo real com toda equipe
           </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <label className="text-xs text-muted-foreground">Conversa:</label>
+          <select
+            value={recipient}
+            onChange={(e) => { setRecipient(e.target.value); setLoading(true); fetchMessages(); }}
+            className="px-2 py-1 rounded border"
+          >
+            <option value="all">Geral (todos)</option>
+            {users.map((u) => (
+              <option key={u.id} value={u.id}>{u.full_name || u.email}</option>
+            ))}
+          </select>
         </div>
         <div className="text-right text-xs text-muted-foreground">
           <p>Total de mensagens: {messages.length}</p>

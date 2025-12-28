@@ -163,6 +163,7 @@ const Pending: React.FC = () => {
       const { error, data } = await supabase
         .from('pending_items')
         .update(payload)
+        .select('*')
         .eq('id', assignModal.itemId);
       createSupabaseLog('update', 'pending_items', { id: assignModal.itemId, ...payload }, data, error);
       if (error) throw error;
@@ -174,6 +175,21 @@ const Pending: React.FC = () => {
       
       setAssignModal({ open: false, itemId: null });
       setSelectedUser('');
+      // If the pending item is related to an activity, create a daily_record for the assigned user
+      const updatedItem = (data && (data as any)[0]) || null;
+      if (updatedItem && updatedItem.activity_id) {
+        const dr = {
+          user_id: selectedUser,
+          activity_id: updatedItem.activity_id,
+          date: updatedItem.original_date || format(new Date(), 'yyyy-MM-dd'),
+          status: 'nao_iniciada',
+        };
+        const { error: drError } = await supabase
+          .from('daily_records')
+          .upsert(dr, { onConflict: 'user_id,activity_id,date' });
+        createSupabaseLog('upsert', 'daily_records', dr, null, drError);
+      }
+
       fetchData();
     } catch (error) {
       console.error('Error assigning item:', error);
@@ -193,6 +209,7 @@ const Pending: React.FC = () => {
       const { error, data } = await supabase
         .from('pending_items')
         .update(payload)
+        .select('*')
         .eq('id', itemId);
       createSupabaseLog('update', 'pending_items', { id: itemId, ...payload }, data, error);
       if (error) throw error;
@@ -202,6 +219,21 @@ const Pending: React.FC = () => {
         description: 'Você assumiu esta pendência.',
       });
       
+      // Create daily_record for this user if related to an activity
+      const updatedItem = (data && (data as any)[0]) || null;
+      if (updatedItem && updatedItem.activity_id) {
+        const dr = {
+          user_id: user.id,
+          activity_id: updatedItem.activity_id,
+          date: updatedItem.original_date || format(new Date(), 'yyyy-MM-dd'),
+          status: 'nao_iniciada',
+        };
+        const { error: drError } = await supabase
+          .from('daily_records')
+          .upsert(dr, { onConflict: 'user_id,activity_id,date' });
+        createSupabaseLog('upsert', 'daily_records', dr, null, drError);
+      }
+
       fetchData();
     } catch (error) {
       console.error('Error assigning item:', error);

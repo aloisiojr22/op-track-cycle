@@ -87,6 +87,12 @@ const Sidebar: React.FC<SidebarProps> = ({ pendingCount = 0, pendingUsersCount =
       show: true,
       badge: unreadMessages,
     },
+    {
+      icon: FileText,
+      label: 'Assistente IA',
+      path: '/ai',
+      show: true,
+    },
   ];
 
   const adminItems = [

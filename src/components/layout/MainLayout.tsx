@@ -80,6 +80,23 @@ const MainLayout: React.FC = () => {
     }
   }, [pendingCount]);
 
+  // Announce pending count with voice once on login/update
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (!user) return;
+    if (pendingCount <= 0) return;
+
+    try {
+      const msg = `${pendingCount} pendência${pendingCount > 1 ? 's' : ''} no quadro.`;
+      const utterance = new SpeechSynthesisUtterance(msg);
+      speechSynthesis.cancel();
+      speechSynthesis.speak(utterance);
+    } catch (e) {
+      // ignore if speech API is not available
+      console.warn('SpeechSynthesis unavailable', e);
+    }
+  }, [pendingCount, user]);
+
   // Subscribe to chat messages for notifications
   useEffect(() => {
     if (!user) return;
