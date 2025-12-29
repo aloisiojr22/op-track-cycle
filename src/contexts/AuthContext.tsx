@@ -151,7 +151,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signUp = async (email: string, password: string, fullName: string) => {
     const redirectUrl = `${window.location.origin}/`;
     
-    const { error } = await supabase.auth.signUp({
+    const { error, data } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -161,6 +161,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       },
     });
+
+    if (!error && data?.user?.id) {
+      // Check if this is the first user (no other profiles exist)
+      try {
+        const { count } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+        const isFirstUser = count === 0;
+        
+        // Create profile with supervisor role if first user, otherwise pending
+        const { error: profileError } = await supabase.from('profiles').insert([{
+          id: data.user.id,
+          email,
+          full_name: fullName,
+          role: isFirstUser ? 'supervisor' : 'operador',
+          approval_status: isFirstUser ? 'approved' : 'pending',
+        }]);
+        
+        if (profileError) {
+          console.error('Error creating profile:', profileError);
+        }
+      } catch (e) {
+        console.error('Error during signup profile creation:', e);
+      }
+    }
+
     return { error };
   };
 
